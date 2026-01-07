@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Site {
@@ -15,6 +15,7 @@ interface Slot {
   slot_label: string;
   content: string;
   wp_page_title: string;
+  wp_page_id: number;
   site_name: string;
 }
 
@@ -31,6 +32,12 @@ export default function VisualEditorPage() {
   const [editContent, setEditContent] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Navigation tracking state
+  const [currentPageId, setCurrentPageId] = useState<number>(15);
+  const [currentPageTitle, setCurrentPageTitle] = useState('Home');
+  const [currentPath, setCurrentPath] = useState('/');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   useEffect(() => {
     loadSites();
   }, []);
@@ -45,6 +52,82 @@ export default function VisualEditorPage() {
     }
   }, [selectedSite]);
 
+
+  // Track iframe navigation and update zones
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !selectedSite) return;
+
+    const handleIframeLoad = async () => {
+      try {
+        // Try to get URL from iframe (may fail due to CORS)
+        let iframeHref;
+        try {
+          iframeHref = iframe.contentWindow?.location.href;
+        } catch (e) {
+          // CORS restriction - can't access iframe URL directly
+          console.log('[Visual Editor] CORS restriction on iframe URL');
+          return;
+        }
+        // Extract real URL from proxy URL if needed
+        if (!iframeHref) return;
+        
+        let actualUrl = iframeHref;
+        if (iframeHref.includes('/api/visual-proxy?url=')) {
+          try {
+            const proxyUrl = new URL(iframeHref);
+            const urlParam = proxyUrl.searchParams.get('url');
+            if (urlParam) {
+              actualUrl = decodeURIComponent(urlParam);
+              console.log('[Visual Editor] Extracted from proxy:', actualUrl);
+            }
+          } catch (e) {
+            console.error('[Visual Editor] Failed to parse proxy URL:', e);
+          }
+        }
+        
+        if (!actualUrl.includes(currentUrl)) return;
+
+        const url = new URL(actualUrl);
+        const path = url.pathname;
+
+        // Skip if same page
+        if (path === currentPath) return;
+
+        console.log('[Visual Editor] Navigation detected:', path);
+        setCurrentPath(path);
+
+        // Get page ID from backend
+        const token = localStorage.getItem('token');
+        const response = await fetch(
+          `https://safewebedit.com/api/wordpress/page-id?url=${encodeURIComponent(path)}&site_id=${selectedSite}`,
+          {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[Visual Editor] Page info:', data);
+
+          setCurrentPageId(data.pageId);
+          setCurrentPageTitle(data.title);
+
+          // Reload zones for this page
+          await loadSlotsForSite();
+
+          setMessage(`Navigated to: ${data.title}`);
+          setTimeout(() => setMessage(''), 3000);
+        }
+
+      } catch (error) {
+        console.error('[Visual Editor] Navigation tracking error:', error);
+      }
+    };
+
+    iframe.addEventListener('load', handleIframeLoad);
+    return () => iframe.removeEventListener('load', handleIframeLoad);
+  }, [selectedSite, currentPath, currentUrl]);
 // Listen for element clicks from iframe (enhanced auto-discovery)
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
@@ -89,6 +172,7 @@ export default function VisualEditorPage() {
                 slot_label: slot.slot_label,
                 content: slot.current_content || textContent,
                 wp_page_title: slot.wp_page_title,
+                wp_page_id: slot.wp_page_id || currentPageId || 0,
                 site_name: ''
               }]);
             }
@@ -100,6 +184,7 @@ export default function VisualEditorPage() {
               slot_label: slot.slot_label,
               content: slot.current_content || textContent,
               wp_page_title: slot.wp_page_title,
+              wp_page_id: slot.wp_page_id || currentPageId || 0,
               site_name: ''
             });
             setEditContent(slot.current_content || textContent);
@@ -206,7 +291,8 @@ const handleSave = async () => {
           },
           body: JSON.stringify({
             slotId: editingSlot.id,
-            content: editContent
+            content: editContent,
+            pageId: currentPageId
           })
         }
       );
@@ -334,24 +420,36 @@ const handleSave = async () => {
             borderBottom: '1px solid #e0e0e0',
             backgroundColor: 'white'
           }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px 0' }}>
               Editable Zones
             </h3>
+            {currentPageTitle && (
+              <div style={{
+                fontSize: '12px',
+                color: '#007bff',
+                marginBottom: '8px',
+                padding: '6px 8px',
+                backgroundColor: '#e7f3ff',
+                borderRadius: '4px'
+              }}>
+                📄 {currentPageTitle}
+              </div>
+            )}
             <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>
-              {slots.length} zone{slots.length !== 1 ? 's' : ''} available
+              {slots.filter(s => !currentPageId || s.wp_page_id === currentPageId || s.wp_page_id === 0).length} zone{slots.filter(s => !currentPageId || s.wp_page_id === currentPageId || s.wp_page_id === 0).length !== 1 ? 's' : ''} on this page
             </p>
           </div>
 
           <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
-            {slots.length === 0 ? (
+            {slots.filter(s => !currentPageId || s.wp_page_id === currentPageId || s.wp_page_id === 0).length === 0 ? (
               <div style={{ padding: '24px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                No editable zones yet.
+                No zones discovered on this page.
                 <br />
-                Create slots first.
+                Click text in the preview to create editable zones.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {slots.map((slot) => (
+                {slots.filter(s => !currentPageId || s.wp_page_id === currentPageId || s.wp_page_id === 0).map((slot) => (
                   <div
                     key={slot.id}
                     onClick={() => handleSlotClick(slot)}
@@ -403,7 +501,7 @@ const handleSave = async () => {
           flexDirection: 'column'
         }}>
           {currentUrl ? (
-            <iframe
+            <iframe ref={iframeRef}
               id="wp-preview"
               src={`https://safewebedit.com/api/visual-proxy?url=${encodeURIComponent(currentUrl)}`}
               style={{
