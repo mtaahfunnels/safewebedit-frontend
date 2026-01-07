@@ -54,8 +54,8 @@ const PLATFORMS = {
     name: 'Ghost',
     icon: '👻',
     color: '#15171a',
-    available: false,
-    description: 'Publishing platform'
+    available: true,
+    description: 'Modern publishing platform'
   },
   drupal: {
     id: 'drupal',
@@ -152,7 +152,7 @@ export default function WebsitesPage() {
 
     // Check if platform is available
     if (!PLATFORMS[formData.platform].available) {
-      setError(`${PLATFORMS[formData.platform].name} support is coming soon! Currently only WordPress is available.`);
+      setError(`${PLATFORMS[formData.platform].name} support is coming soon! Currently WordPress, Shopify, and Ghost are available.`);
       return;
     }
 
@@ -277,7 +277,7 @@ export default function WebsitesPage() {
       wix: 'Connect via Wix API (coming soon)',
       squarespace: 'Use your Squarespace account credentials (coming soon)',
       webflow: 'Connect via Webflow API (coming soon)',
-      ghost: 'Use your Ghost Admin API key (coming soon)',
+      ghost: 'Get your Admin API Key from Ghost Admin → Integrations → Add custom integration → Copy API Key',
       drupal: 'Use your Drupal REST API credentials (coming soon)',
       joomla: 'Connect via Joomla API (coming soon)',
       custom: 'Contact support for custom integration options (coming soon)'
@@ -424,13 +424,14 @@ export default function WebsitesPage() {
               {!platform.available && platformCounts[platform.id] === 0 && (
                 <span style={{
                   fontSize: '10px',
-                  padding: '2px 6px',
-                  backgroundColor: '#ffc107',
-                  color: '#000',
-                  borderRadius: '4px',
-                  fontWeight: '600'
+                  padding: '3px 8px',
+                  backgroundColor: '#e3f2fd',
+                  color: '#1976d2',
+                  borderRadius: '12px',
+                  fontWeight: '600',
+                  border: '1px solid #90caf9'
                 }}>
-                  SOON
+                  Coming Soon
                 </span>
               )}
             </button>
