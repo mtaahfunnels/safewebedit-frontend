@@ -1,0 +1,102 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authAPI } from '@/lib/api';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  organization_type: string;
+  content_tone: string;
+  subscription_status: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (data: any) => Promise<void>;
+  logout: () => void;
+  refreshUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchUser = async () => {
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await authAPI.getProfile();
+      setUser(data.organization);
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+      localStorage.removeItem('token');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    const data = await authAPI.login({ email, password });
+    setUser(data.organization);
+  };
+
+  const signup = async (signupData: any) => {
+    console.log('[AUTH CONTEXT] Starting signup with data:', signupData);
+    try {
+      console.log('[AUTH CONTEXT] Calling authAPI.signup');
+      const data = await authAPI.signup(signupData);
+      console.log('[AUTH CONTEXT] Signup successful, received data:', data);
+      console.log('[AUTH CONTEXT] Organization from response:', data.organization);
+      console.log('[AUTH CONTEXT] Setting user state');
+      setUser(data.organization);
+      console.log('[AUTH CONTEXT] User state set successfully');
+    } catch (error) {
+      console.error('[AUTH CONTEXT] Signup failed with error:', error);
+      throw error;
+    }
+  };
+
+  const logout = () => {
+    authAPI.logout();
+    setUser(null);
+  };
+
+  const refreshUser = async () => {
+    await fetchUser();
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{ user, loading, login, signup, logout, refreshUser }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}

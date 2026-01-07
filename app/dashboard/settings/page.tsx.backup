@@ -1,0 +1,385 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Copy, CheckCircle, XCircle, RefreshCw, FileSpreadsheet } from 'lucide-react';
+
+export default function SettingsPage() {
+  const [serviceAccountEmail] = useState('safewebedit-sync-bot@safewebedit-sync.iam.gserviceaccount.com');
+  const [copiedEmail, setCopiedEmail] = useState(false);
+
+  // Google Sheets configuration
+  const [googleSheetUrl, setGoogleSheetUrl] = useState('');
+  const [googleSheetRange, setGoogleSheetRange] = useState('Sheet1!A:Z');
+  const [configured, setConfigured] = useState(false);
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+
+  // UI states
+  const [loading, setLoading] = useState(true);
+  const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [testResult, setTestResult] = useState<{success: boolean; title?: string; error?: string; helpText?: string} | null>(null);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const response = await fetch('/api/google-sheets/settings', { headers: { 'Authorization':  } });
+      const data = await response.json();
+
+      if (data.success) {
+        setConfigured(data.configured);
+        setGoogleSheetUrl(data.google_sheet_url || '');
+        setGoogleSheetRange(data.google_sheet_range || 'Sheet1!A:Z');
+        setSyncEnabled(data.sync_enabled || false);
+        setLastSynced(data.last_synced_at);
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyEmail = () => {
+    navigator.clipboard.writeText(serviceAccountEmail);
+    setCopiedEmail(true);
+    setTimeout(() => setCopiedEmail(false), 2000);
+  };
+
+  const handleTestConnection = async () => {
+    if (!googleSheetUrl.trim()) {
+      setTestResult({
+        success: false,
+        error: 'Please enter a Google Sheets URL'
+      });
+      return;
+    }
+
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      const response = await fetch('/api/google-sheets/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization':  },
+        body: JSON.stringify({ google_sheet_url: googleSheetUrl })
+      });
+
+      const data = await response.json();
+      setTestResult(data);
+    } catch (error) {
+      setTestResult({
+        success: false,
+        error: 'Failed to test connection'
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setSaving(true);
+
+    try {
+      const response = await fetch('/api/google-sheets/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization':  },
+        body: JSON.stringify({
+          google_sheet_url: googleSheetUrl,
+          google_sheet_range: googleSheetRange
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setConfigured(true);
+        setTestResult({
+          success: true,
+          title: 'Settings saved successfully!'
+        });
+      } else {
+        setTestResult({
+          success: false,
+          error: data.error || 'Failed to save settings'
+        });
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        error: 'Failed to save settings'
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+
+    try {
+      const response = await fetch('/api/google-sheets/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization':  },
+        body: JSON.stringify({ action: 'sync_now' })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTestResult({
+          success: true,
+          title: `Synced ${data.rowsProcessed} rows successfully!`
+        });
+        await loadSettings(); // Reload to get updated last_synced_at
+      } else {
+        setTestResult({
+          success: false,
+          error: data.error || 'Sync failed'
+        });
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        error: 'Sync failed'
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const toggleAutoSync = async () => {
+    const action = syncEnabled ? 'disable_auto_sync' : 'enable_auto_sync';
+
+    try {
+      const response = await fetch('/api/google-sheets/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization':  },
+        body: JSON.stringify({ action })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSyncEnabled(!syncEnabled);
+      }
+    } catch (error) {
+      console.error('Failed to toggle auto-sync:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
+        <FileSpreadsheet className="w-8 h-8 text-purple-600" />
+        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+      </div>
+
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Google Sheets Integration</h2>
+        <p className="text-gray-600 mb-6">
+          Connect your Google Sheet to automatically sync content to your website zones.
+          No OAuth required - just share your spreadsheet with our service account.
+        </p>
+
+        {/* Step 1: Share Instructions */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+          <h3 className="font-semibold text-blue-900 mb-3">Step 1: Share Your Spreadsheet</h3>
+          <ol className="list-decimal list-inside space-y-2 text-blue-800 mb-4">
+            <li>Open your Google Sheet</li>
+            <li>Click the "Share" button (top right)</li>
+            <li>Copy the service account email below and paste it in the share box</li>
+            <li>Select "Editor" permission</li>
+            <li>Click "Send"</li>
+          </ol>
+
+          <div className="bg-white rounded-lg p-4 border border-blue-300">
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">
+              Service Account Email:
+            </Label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 bg-gray-50 rounded border text-sm font-mono">
+                {serviceAccountEmail}
+              </code>
+              <Button
+                onClick={copyEmail}
+                variant="outline"
+                size="sm"
+                className={copiedEmail ? 'bg-green-50 border-green-300' : ''}
+              >
+                {copiedEmail ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-1 text-green-600" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-1" />
+                    Copy
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2: Enter Spreadsheet URL */}
+        <div className="space-y-4">
+          <h3 className="font-semibold text-gray-900">Step 2: Configure Your Spreadsheet</h3>
+
+          <div>
+            <Label htmlFor="sheet-url" className="text-sm font-medium text-gray-700 mb-2 block">
+              Google Sheets URL
+            </Label>
+            <Input
+              id="sheet-url"
+              type="url"
+              value={googleSheetUrl}
+              onChange={(e) => setGoogleSheetUrl(e.target.value)}
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+              className="mb-2"
+            />
+            <p className="text-xs text-gray-500">
+              Copy the full URL from your browser when viewing your Google Sheet
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="sheet-range" className="text-sm font-medium text-gray-700 mb-2 block">
+              Sheet Range (Optional)
+            </Label>
+            <Input
+              id="sheet-range"
+              value={googleSheetRange}
+              onChange={(e) => setGoogleSheetRange(e.target.value)}
+              placeholder="Sheet1!A:Z"
+              className="mb-2"
+            />
+            <p className="text-xs text-gray-500">
+              Use A1 notation (e.g., "Sheet1!A:Z" to read all columns in Sheet1)
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              onClick={handleTestConnection}
+              disabled={testing || !googleSheetUrl.trim()}
+              variant="outline"
+            >
+              {testing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                'Test Connection'
+              )}
+            </Button>
+
+            <Button
+              onClick={handleSaveSettings}
+              disabled={saving || !googleSheetUrl.trim()}
+            >
+              {saving ? 'Saving...' : 'Save Settings'}
+            </Button>
+          </div>
+
+          {/* Test Result */}
+          {testResult && (
+            <div
+              className={`rounded-lg p-4 border ${
+                testResult.success
+                  ? 'bg-green-50 border-green-300 text-green-800'
+                  : 'bg-red-50 border-red-300 text-red-800'
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                {testResult.success ? (
+                  <CheckCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                ) : (
+                  <XCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                )}
+                <div>
+                  <p className="font-medium">
+                    {testResult.success
+                      ? testResult.title || 'Connection successful!'
+                      : testResult.error || 'Connection failed'}
+                  </p>
+                  {testResult.helpText && (
+                    <p className="text-sm mt-1">{testResult.helpText}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Step 3: Sync Controls (only show if configured) */}
+        {configured && (
+          <div className="mt-6 pt-6 border-t">
+            <h3 className="font-semibold text-gray-900 mb-4">Sync Controls</h3>
+
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Auto-Sync</p>
+                <p className="text-xs text-gray-500">Automatically sync your spreadsheet data</p>
+              </div>
+              <Button
+                onClick={toggleAutoSync}
+                variant={syncEnabled ? 'default' : 'outline'}
+                size="sm"
+              >
+                {syncEnabled ? 'Enabled' : 'Disabled'}
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={handleSyncNow}
+                disabled={syncing}
+                variant="outline"
+              >
+                {syncing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Sync Now
+                  </>
+                )}
+              </Button>
+
+              {lastSynced && (
+                <p className="text-sm text-gray-600">
+                  Last synced: {new Date(lastSynced).toLocaleString()}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}

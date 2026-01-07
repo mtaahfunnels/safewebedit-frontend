@@ -22,7 +22,7 @@ const PLATFORMS = {
     name: 'Shopify',
     icon: '🛍️',
     color: '#96bf48',
-    available: false,
+    available: true,
     description: 'E-commerce platform'
   },
   wix: {
@@ -104,7 +104,8 @@ export default function WebsitesPage() {
     platform: 'wordpress' as PlatformId,
     url: '',
     username: '',
-    password: ''
+    password: '',
+    access_token: '' // For Shopify
   });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -162,7 +163,26 @@ export default function WebsitesPage() {
     }
 
     try {
-      const response = await fetch('https://safewebedit.com/api/wordpress/connect', {
+      let apiUrl, requestBody;
+
+      if (formData.platform === "shopify") {
+        // Shopify OAuth - redirect to authorization
+        const shopDomain = formData.url.trim().replace(/^https?:\/\//, '').split('.')[0];
+        window.location.href = `https://safewebedit.com/api/shopify/oauth/install?shop=${encodeURIComponent(shopDomain)}&organization_id=${token}`;
+        return;
+      } else {
+        // WordPress API endpoint (default)
+        apiUrl = "https://safewebedit.com/api/wordpress/connect";
+        requestBody = {
+          site_url: formData.url,
+          site_name: new URL(formData.url).hostname,
+          wp_username: formData.username,
+          wp_app_password: formData.password,
+          platform: formData.platform
+        };
+      }
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -179,7 +199,7 @@ export default function WebsitesPage() {
 
       if (response.ok) {
         setMessage(`✓ ${PLATFORMS[formData.platform].name} site added successfully`);
-        setFormData({ platform: 'wordpress', url: '', username: '', password: '' });
+        setFormData({ platform: 'wordpress', url: '', username: '', password: '', access_token: '' });
         setShowAddForm(false);
         loadSites();
       } else {
@@ -253,7 +273,7 @@ export default function WebsitesPage() {
   const getPlatformInstructions = (platform: PlatformId) => {
     const instructions: Record<PlatformId, string> = {
       wordpress: 'Create an Application Password in WordPress: Users → Profile → Application Passwords',
-      shopify: 'You\'ll need your Shopify Admin API credentials (coming soon)',
+      shopify: 'Create a Custom App in Shopify Admin: Settings → Apps and sales channels → Develop apps → Create app → Configure Admin API scopes (read_content, write_content) → Install app → Reveal token once → Copy Access Token',
       wix: 'Connect via Wix API (coming soon)',
       squarespace: 'Use your Squarespace account credentials (coming soon)',
       webflow: 'Connect via Webflow API (coming soon)',

@@ -1,0 +1,202 @@
+import axios from 'axios';
+import { getSession } from 'next-auth/react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.safewebedit.com';
+
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor - add auth token
+api.interceptors.request.use(
+  async (config) => {
+    if (typeof window !== 'undefined') {
+      // Try to get backend JWT from localStorage first
+      let backendToken = localStorage.getItem('backend_token');
+      
+      // If no backend token, get one from Keycloak session
+      if (!backendToken) {
+        const session = await getSession();
+        if (session?.user) {
+          try {
+            // Exchange Keycloak token for backend JWT
+            const response = await axios.post(`${API_BASE_URL}/api/auth/keycloak-login`, {
+              keycloak_token: (session.user as any).accessToken,
+              user_info: {
+                email: session.user.email,
+                name: session.user.name,
+                sub: session.user.id,
+                organization_type: (session.user as any).organizationType || 'business',
+                content_tone: 'professional',
+              },
+            });
+            
+            backendToken = response.data.token;
+            localStorage.setItem('backend_token', backendToken);
+          } catch (error) {
+            console.error('[API] Failed to exchange Keycloak token:', error);
+          }
+        }
+      }
+      
+      if (backendToken) {
+        config.headers.Authorization = `Bearer ${backendToken}`;
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor - handle errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      // Clear backend token and redirect to login
+      localStorage.removeItem('backend_token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const authAPI = {
+  signup: async (data: any) => {
+    const response = await api.post('/api/auth/signup', data);
+    if (typeof window !== 'undefined' && response.data.token) {
+      localStorage.setItem('backend_token', response.data.token);
+    }
+    return response.data;
+  },
+
+  login: async (data: { email: string; password: string; organization_id?: string }) => {
+    const response = await api.post('/api/auth/login', data);
+    if (typeof window !== 'undefined' && response.data.token) {
+      localStorage.setItem('backend_token', response.data.token);
+    }
+    return response.data;
+  },
+
+  getProfile: async () => {
+    const response = await api.get('/api/auth/me');
+    return response.data;
+  },
+
+  logout: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('backend_token');
+      window.location.href = '/login';
+    }
+  },
+};
+
+export const wordpressAPI = {
+  connect: async (data: any) => {
+    const response = await api.post('/api/wordpress/connect', data);
+    return response.data;
+  },
+
+  getSites: async () => {
+    const response = await api.get('/api/wordpress/sites');
+    return response.data;
+  },
+
+  getSite: async (siteId: string) => {
+    const response = await api.get(`/api/wordpress/sites/${siteId}`);
+    return response.data;
+  },
+
+  testConnection: async (siteId: string) => {
+    const response = await api.post(`/api/wordpress/sites/${siteId}/test`);
+    return response.data;
+  },
+
+  syncPages: async (siteId: string) => {
+    const response = await api.post(`/api/wordpress/sites/${siteId}/sync`);
+    return response.data;
+  },
+
+  disconnect: async (siteId: string) => {
+    const response = await api.delete(`/api/wordpress/sites/${siteId}`);
+    return response.data;
+  },
+
+  updateCredentials: async (siteId: string, data: any) => {
+    const response = await api.put(`/api/wordpress/sites/${siteId}/credentials`, data);
+    return response.data;
+  },
+};
+
+export const slotsAPI = {  createSlot: async (data: any) => {    const response = await api.post("/api/slots/create", data);    return response.data;  },  getSiteSlots: async (siteId: string) => {    const response = await api.get();    return response.data;  },  getSlot: async (slotId: string) => {    const response = await api.get();    return response.data;  },  updateSlot: async (slotId: string, data: any) => {    const response = await api.patch(, data);    return response.data;  },  deleteSlot: async (slotId: string) => {    const response = await api.delete();    return response.data;  },  scanPage: async (data: { wordpress_site_id: string; wp_page_id: number }) => {    const response = await api.post("/api/slots/scan", data);    return response.data;  },  /* Legacy methods for backward compatibility */  create: async (data: any) => {    const response = await api.post("/api/slots/create", data);    return response.data;  },  getSlots: async (siteId: string) => {    const response = await api.get();    return response.data;  },  update: async (slotId: string, data: any) => {    const response = await api.patch(, data);    return response.data;  },  delete: async (slotId: string) => {    const response = await api.delete();    return response.data;  },};
+
+export const contentAPI = {
+  generate: async (data: any) => {
+    const response = await api.post('/api/content/generate', data);
+    return response.data;
+  },
+
+  publish: async (updateId: string) => {
+    const response = await api.post(`/api/content/updates/${updateId}/publish`);
+    return response.data;
+  },
+
+  getUpdate: async (updateId: string) => {
+    const response = await api.get(`/api/content/updates/${updateId}`);
+    return response.data;
+  },
+
+  getHistory: async (limit: number = 10) => {
+    const response = await api.get(`/api/content/updates?limit=${limit}`);
+    return response.data;
+  },
+
+  deleteUpdate: async (updateId: string) => {
+    const response = await api.delete(`/api/content/updates/${updateId}`);
+    return response.data;
+  },
+
+  regenerate: async (updateId: string, instructions?: string) => {
+    const response = await api.post(`/api/content/updates/${updateId}/regenerate`, {
+      instructions,
+    });
+    return response.data;
+  },
+
+  schedule: async (updateId: string, scheduledFor: string) => {
+    const response = await api.post(`/api/content/updates/${updateId}/schedule`, {
+      scheduled_for: scheduledFor,
+    });
+    return response.data;
+  },
+
+  cancelSchedule: async (updateId: string) => {
+    const response = await api.post(`/api/content/updates/${updateId}/cancel-schedule`);
+    return response.data;
+  },
+
+  preview: async (slotId: string, instructions?: string) => {
+    const response = await api.post('/api/content/preview', {
+      slot_id: slotId,
+      instructions,
+    });
+    return response.data;
+  },
+};
+
+export const subscriptionAPI = {
+  getSubscription: async () => {
+    const response = await api.get('/api/subscription');
+    return response.data;
+  },
+
+  getUsage: async () => {
+    const response = await api.get('/api/subscription/usage');
+    return response.data;
+  },
+};

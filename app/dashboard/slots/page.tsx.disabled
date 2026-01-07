@@ -1,0 +1,652 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { wordpressAPI, slotsAPI } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Code,
+  Plus,
+  Trash2,
+  Eye,
+  Edit2,
+  Globe,
+  AlertCircle,
+  CheckCircle,
+  Copy,
+  FileText,
+  Layers,
+} from 'lucide-react';
+
+interface WordPressSite {
+  id: string;
+  site_url: string;
+  site_name: string;
+  is_active: boolean;
+}
+
+interface Slot {
+  id: string;
+  slot_name: string;
+  slot_label: string;
+  marker_name: string;
+  wp_page_id: number;
+  wp_page_title: string;
+  is_active: boolean;
+  last_updated_at: string | null;
+  created_at: string;
+  slot_type?: string;
+  css_selector?: string;
+}
+
+interface SlotDetail extends Slot {
+  description?: string;
+  current_content?: string;
+  marker_exists: boolean;
+}
+
+export default function SlotsPage() {
+  const { data: session, status } = useSession();
+  const [sites, setSites] = useState<WordPressSite[]>([]);
+  const [selectedSite, setSelectedSite] = useState('');
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<SlotDetail | null>(null);
+  const [copiedMarker, setCopiedMarker] = useState('');
+
+  // Create form state
+  const [formData, setFormData] = useState({
+    wp_page_id: '',
+    slot_name: '',
+    slot_label: '',
+    marker_name: '',
+    description: '',
+  });
+  const [formError, setFormError] = useState('');
+  const [formLoading, setFormLoading] = useState(false);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      loadSites();
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (selectedSite) {
+      loadSlots();
+    } else {
+      setSlots([]);
+    }
+  }, [selectedSite]);
+
+  const loadSites = async () => {
+    try {
+      const data = await wordpressAPI.getSites();
+      setSites(data.sites?.filter((s: any) => s.is_active) || []);
+    } catch (error) {
+      console.error('Failed to load sites:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSlots = async () => {
+    setSlotsLoading(true);
+    try {
+      const data = await slotsAPI.getSiteSlots(selectedSite);
+      setSlots(data.slots || []);
+    } catch (error) {
+      console.error('Failed to load slots:', error);
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  const handleCreateSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    setFormLoading(true);
+
+    try {
+      const response = await slotsAPI.createSlot({
+        wordpress_site_id: selectedSite,
+        wp_page_id: parseInt(formData.wp_page_id),
+        slot_name: formData.slot_name,
+        slot_label: formData.slot_label || formData.slot_name,
+        marker_name: formData.marker_name || undefined,
+        description: formData.description || undefined,
+      });
+
+      // Show success message with marker instructions
+      alert(
+        `Slot created successfully!\n\n` +
+          `Add this HTML to your WordPress page:\n` +
+          response.instructions.full_example
+      );
+
+      await loadSlots();
+      setShowCreateForm(false);
+      setFormData({
+        wp_page_id: '',
+        slot_name: '',
+        slot_label: '',
+        marker_name: '',
+        description: '',
+      });
+    } catch (error: any) {
+      setFormError(error.response?.data?.error || 'Failed to create slot');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleViewSlot = async (slotId: string) => {
+    try {
+      const data = await slotsAPI.getSlot(slotId);
+      setSelectedSlot(data.slot);
+    } catch (error) {
+      console.error('Failed to load slot details:', error);
+      alert('Failed to load slot details');
+    }
+  };
+
+  const handleDeleteSlot = async (slotId: string) => {
+    if (!confirm('Are you sure you want to delete this slot?')) {
+      return;
+    }
+
+    try {
+      await slotsAPI.deleteSlot(slotId);
+      await loadSlots();
+      if (selectedSlot?.id === slotId) {
+        setSelectedSlot(null);
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to delete slot');
+    }
+  };
+
+  const copyToClipboard = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMarker(type);
+    setTimeout(() => setCopiedMarker(''), 2000);
+  };
+
+  if (status === 'loading' || loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Content Slots</h1>
+        <p className="text-gray-600 mt-1">
+          Manage content slots for your WordPress sites
+        </p>
+      </div>
+
+      {sites.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Globe className="w-8 h-8 text-purple-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            No WordPress Sites Connected
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Connect a WordPress site first to create content slots
+          </p>
+          <Button onClick={() => (window.location.href = '/dashboard/wordpress')}>
+            <Globe className="w-4 h-4 mr-2" />
+            Connect WordPress Site
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Site Selector */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <Label htmlFor="site-select">Select WordPress Site</Label>
+            <div className="flex gap-4 mt-2">
+              <select
+                id="site-select"
+                value={selectedSite}
+                onChange={(e) => setSelectedSite(e.target.value)}
+                className="flex-1 h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500"
+              >
+                <option value="">Select a site...</option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.site_name || site.site_url}
+                  </option>
+                ))}
+              </select>
+              {selectedSite && (
+                <Button onClick={() => setShowCreateForm(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Slot
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Create Form */}
+          {showCreateForm && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Create New Content Slot
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setFormError('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+
+              <form onSubmit={handleCreateSlot} className="space-y-4">
+                {formError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                    {formError}
+                  </div>
+                )}
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-900 mb-2">
+                    What is a Content Slot?
+                  </h3>
+                  <p className="text-sm text-blue-800">
+                    A content slot is a designated area on your WordPress page where
+                    SafeWebEdit can automatically update content. You&apos;ll add a simple
+                    HTML comment marker to your page, and we&apos;ll handle the rest!
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="wp_page_id">WordPress Page ID</Label>
+                  <Input
+                    id="wp_page_id"
+                    type="number"
+                    value={formData.wp_page_id}
+                    onChange={(e) =>
+                      setFormData({ ...formData, wp_page_id: e.target.value })
+                    }
+                    placeholder="123"
+                    required
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Find this in WordPress admin → Pages → Edit page → Check URL bar
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="slot_name">Slot Name (Internal)</Label>
+                  <Input
+                    id="slot_name"
+                    type="text"
+                    value={formData.slot_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, slot_name: e.target.value })
+                    }
+                    placeholder="hero-section"
+                    required
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Lowercase, hyphens only (used for marker generation)
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="slot_label">Slot Label (Display Name)</Label>
+                  <Input
+                    id="slot_label"
+                    type="text"
+                    value={formData.slot_label}
+                    onChange={(e) =>
+                      setFormData({ ...formData, slot_label: e.target.value })
+                    }
+                    placeholder="Hero Section"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="marker_name">
+                    Marker Name (Optional - Auto-generated)
+                  </Label>
+                  <Input
+                    id="marker_name"
+                    type="text"
+                    value={formData.marker_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, marker_name: e.target.value })
+                    }
+                    placeholder="HERO_SECTION"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave blank to auto-generate from slot name
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    placeholder="Describe what content goes in this slot..."
+                    rows={3}
+                    className="mt-1 flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500"
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={formLoading}>
+                  {formLoading ? 'Creating...' : 'Create Content Slot'}
+                </Button>
+              </form>
+            </div>
+          )}
+
+          {/* Slots List */}
+          {selectedSite && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Content Slots ({slots.length})
+                </h2>
+              </div>
+
+              {slotsLoading ? (
+                <div className="p-12 text-center">
+                  <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading slots...</p>
+                </div>
+              ) : slots.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <Layers className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                  <p>No content slots created yet</p>
+                  <p className="text-sm mt-2">
+                    Create your first slot to start managing content
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {slots.map((slot) => (
+                    <div key={slot.id} className="px-6 py-4 hover:bg-gray-50">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-gray-900">
+                              {slot.slot_label || slot.slot_name}
+                            </h3>
+                            {slot.is_active ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="space-y-1 text-sm text-gray-600">
+                            <p>
+                              <span className="font-medium">Page:</span>{' '}
+                              {slot.wp_page_title}
+                            </p>
+                            <p>
+                              <span className="font-medium">Marker:</span>{' '}
+                              <code className="bg-gray-100 px-2 py-0.5 rounded text-xs">
+                                {slot.marker_name}
+                              </code>
+                            </p>
+                            {slot.last_updated_at && (
+                              <p>
+                                <span className="font-medium">Last updated:</span>{' '}
+                                {new Date(slot.last_updated_at).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewSlot(slot.id)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteSlot(slot.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Slot Details Modal */}
+          {selectedSlot && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Slot Details
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedSlot(null)}
+                  >
+                    Close
+                  </Button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Basic Info */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3">
+                      Basic Information
+                    </h3>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                      <p>
+                        <span className="font-medium">Label:</span>{' '}
+                        {selectedSlot.slot_label}
+                      </p>
+                      <p>
+                        <span className="font-medium">Name:</span>{' '}
+                        {selectedSlot.slot_name}
+                      </p>
+                      <p>
+                        <span className="font-medium">Page:</span>{' '}
+                        {selectedSlot.wp_page_title} (ID: {selectedSlot.wp_page_id})
+                      </p>
+                      {selectedSlot.description && (
+                        <p>
+                          <span className="font-medium">Description:</span>{' '}
+                          {selectedSlot.description}
+                        </p>
+                      )}
+                      <p>
+                        <span className="font-medium">Status:</span>{' '}
+                        {selectedSlot.slot_type === 'css_selector' ? (
+                          <span className="text-green-600">
+                            ✓ Ready to use - No setup required
+                          </span>
+                        ) : selectedSlot.marker_exists ? (
+                          <span className="text-green-600">
+                            ✓ Marker found on page
+                          </span>
+                        ) : (
+                          <span className="text-yellow-600">
+                            ⚠ Marker not found on page
+                          </span>
+                        )}
+                      </p>
+                      {selectedSlot.slot_type === 'css_selector' && selectedSlot.css_selector && (
+                        <p>
+                          <span className="font-medium">CSS Selector:</span>{' '}
+                          <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                            {selectedSlot.css_selector}
+                          </code>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* HTML Markers - Only show for marker-based slots */}
+                  {selectedSlot.slot_type !== 'css_selector' && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3">
+                      HTML Markers
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label>Opening Marker</Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              copyToClipboard(
+                                `<!-- SWE:SLOT:${selectedSlot.marker_name} -->`,
+                                'opening'
+                              )
+                            }
+                          >
+                            {copiedMarker === 'opening' ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                        <code className="block bg-gray-900 text-gray-100 p-3 rounded text-sm">
+                          {`<!-- SWE:SLOT:${selectedSlot.marker_name} -->`}
+                        </code>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label>Closing Marker</Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              copyToClipboard(
+                                `<!-- /SWE:SLOT:${selectedSlot.marker_name} -->`,
+                                'closing'
+                              )
+                            }
+                          >
+                            {copiedMarker === 'closing' ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                        <code className="block bg-gray-900 text-gray-100 p-3 rounded text-sm">
+                          {`<!-- /SWE:SLOT:${selectedSlot.marker_name} -->`}
+                        </code>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label>Full Example</Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              copyToClipboard(
+                                `<!-- SWE:SLOT:${selectedSlot.marker_name} -->\nYour content here\n<!-- /SWE:SLOT:${selectedSlot.marker_name} -->`,
+                                'full'
+                              )
+                            }
+                          >
+                            {copiedMarker === 'full' ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                        <code className="block bg-gray-900 text-gray-100 p-3 rounded text-sm whitespace-pre">
+                          {`<!-- SWE:SLOT:${selectedSlot.marker_name} -->\nYour content here\n<!-- /SWE:SLOT:${selectedSlot.marker_name} -->`}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+
+                  )}
+
+                  {/* Current Content */}
+                  {selectedSlot.current_content && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3">
+                        Current Content
+                      </h3>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div
+                          className="prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: selectedSlot.current_content,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Setup Instructions - Only for marker-based slots */}
+                  {selectedSlot.slot_type !== 'css_selector' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-blue-900 mb-2">
+                      Setup Instructions
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+                      <li>Go to your WordPress admin panel</li>
+                      <li>Edit the page: {selectedSlot.wp_page_title}</li>
+                      <li>Switch to HTML/Code editor mode</li>
+                      <li>
+                        Add the markers where you want the content to appear (copy
+                        from above)
+                      </li>
+                      <li>Save the page</li>
+                      <li>Return here to generate and publish content!</li>
+                    </ol>
+                  </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
