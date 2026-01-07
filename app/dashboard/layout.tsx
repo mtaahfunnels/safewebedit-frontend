@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 // ============================================
 const DASHBOARD_TABS = [
   { id: 'home', label: 'Home', path: '/dashboard', icon: '🏠' },
-  { id: 'wordpress', label: 'WordPress Sites', path: '/dashboard/wordpress', icon: '🌐' },
+  { id: 'wordpress', label: 'Websites', path: '/dashboard/wordpress', icon: '🌐' },
   { id: 'visual', label: 'Visual Editor', path: '/dashboard/visual', icon: '🎨' },
   { id: 'command', label: 'AI Command Center', path: '/dashboard/command', icon: '🤖' },
   { id: 'settings', label: 'Settings', path: '/dashboard/settings', icon: '⚙️' },
