@@ -11,9 +11,8 @@ import { useEffect, useState } from 'react';
 const DASHBOARD_TABS = [
   { id: 'home', label: 'Home', path: '/dashboard', icon: '🏠' },
   { id: 'wordpress', label: 'WordPress Sites', path: '/dashboard/wordpress', icon: '🌐' },
-  { id: 'content', label: 'Content Editor', path: '/dashboard/content', icon: '✏️' },
   { id: 'visual', label: 'Visual Editor', path: '/dashboard/visual', icon: '🎨' },
-  { id: 'slots', label: 'Content Slots', path: '/dashboard/slots', icon: '📊' },
+  { id: 'command', label: 'AI Command Center', path: '/dashboard/command', icon: '🤖' },
   { id: 'settings', label: 'Settings', path: '/dashboard/settings', icon: '⚙️' },
   // Add more tabs here in the future:
   // { id: 'analytics', label: 'Analytics', path: '/dashboard/analytics', icon: '📈' },
