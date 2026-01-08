@@ -1,10 +1,279 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from 'next/link';
 
+interface Zone {
+  id: string;
+  label: string;
+  content: string;
+  editable: boolean;
+  previewOnly: boolean;
+  location: string;
+}
+
+interface DiscoveryResult {
+  success: boolean;
+  platform?: string;
+  url?: string;
+  zones?: Zone[];
+  totalZones?: number;
+  subscriptionRequired?: boolean;
+  message?: string;
+  pricing?: {
+    starter: string;
+    pro: string;
+  };
+}
+
 export default function HomePage() {
+  const router = useRouter();
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [platformData, setPlatformData] = useState<any>(null);
+  const [discoveryResult, setDiscoveryResult] = useState<DiscoveryResult | null>(null);
+  const [error, setError] = useState("");
+  const [showVisualPreview, setShowVisualPreview] = useState(false);
+  const [highlightedZone, setHighlightedZone] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const handleDetect = async () => {
+    if (!url.trim()) {
+      setError("Please enter a website URL");
+      return;
+    }
+
+    setDetecting(true);
+    setError("");
+    setPlatformData(null);
+    setDiscoveryResult(null);
+    setShowVisualPreview(false);
+
+    try {
+      const response = await fetch("/api/platform-detection/detect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+
+      const data = await response.json();
+      setPlatformData(data);
+
+      if (data.platform === "wordpress" && data.canEdit) {
+        handleDiscover();
+      } else if (data.platform === "unknown") {
+        setError("Could not detect platform. Make sure the URL is correct and the site is accessible.");
+      } else if (data.platform !== "wordpress") {
+        setError(`${data.platform} support coming soon! Currently works with WordPress only.`);
+      }
+    } catch (err: any) {
+      setError("Failed to detect platform. Please check the URL and try again.");
+      console.error(err);
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  const handleDiscover = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/platform-detection/discover-zones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+
+      const data = await response.json();
+      setDiscoveryResult(data);
+
+      if (!data.success) {
+        setError(data.message || "Failed to discover zones");
+      } else {
+        setShowVisualPreview(true);
+      }
+    } catch (err: any) {
+      setError("Failed to discover zones. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpgrade = () => {
+    router.push("/onboard");
+  };
+
+  const handleZoneHover = (zoneId: string | null, zone: Zone | null) => {
+    setHighlightedZone(zoneId);
+
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      if (zone) {
+        iframeRef.current.contentWindow.postMessage({
+          type: 'HIGHLIGHT_ZONE_FREEMIUM',
+          content: zone.content,
+          label: zone.label
+        }, '*');
+      } else {
+        iframeRef.current.contentWindow.postMessage({
+          type: 'CLEAR_HIGHLIGHT_FREEMIUM'
+        }, '*');
+      }
+    }
+  };
+
+  // Listen for edit zone clicks from iframe
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'EDIT_ZONE_CLICKED_FREEMIUM') {
+        router.push('/onboard');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [router]);
+
+  // Inject freemium highlighting script after iframe loads
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !showVisualPreview) return;
+
+    const handleIframeLoad = () => {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!iframeDoc) {
+          console.log('[Freemium] Cannot access iframe document');
+          return;
+        }
+
+        // Inject freemium highlighting script
+        const script = iframeDoc.createElement('script');
+        script.textContent = `
+          (function() {
+            console.log('[SafeWebEdit Freemium] Highlighting script loaded');
+
+            let currentHighlight = null;
+
+            window.addEventListener('message', function(event) {
+              if (event.data.type === 'HIGHLIGHT_ZONE_FREEMIUM') {
+                clearHighlight();
+                highlightContent(event.data.content, event.data.label);
+              } else if (event.data.type === 'CLEAR_HIGHLIGHT_FREEMIUM') {
+                clearHighlight();
+              }
+            });
+
+            function highlightContent(content, label) {
+              const searchText = content.substring(0, Math.min(100, content.length));
+
+              // Find element containing this text
+              const walker = document.createTreeWalker(
+                document.body,
+                NodeFilter.SHOW_TEXT,
+                null
+              );
+
+              let found = false;
+              let node;
+              while ((node = walker.nextNode()) && !found) {
+                const text = node.textContent.trim();
+                if (text && searchText.includes(text.substring(0, 50))) {
+                  const element = node.parentElement;
+                  if (element && element.offsetParent !== null) {
+                    highlightElement(element, label);
+                    found = true;
+                  }
+                }
+              }
+
+              if (!found) {
+                console.log('[Freemium] Could not find element for:', searchText.substring(0, 30));
+              }
+            }
+
+            function highlightElement(element, label) {
+              const rect = element.getBoundingClientRect();
+
+              const overlay = document.createElement('div');
+              overlay.style.position = 'absolute';
+              overlay.style.left = (rect.left + window.scrollX) + 'px';
+              overlay.style.top = (rect.top + window.scrollY) + 'px';
+              overlay.style.width = rect.width + 'px';
+              overlay.style.height = rect.height + 'px';
+              overlay.style.border = '3px dashed #007bff';
+              overlay.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+              overlay.style.pointerEvents = 'auto';
+              overlay.style.zIndex = '999999';
+              overlay.style.borderRadius = '4px';
+              overlay.style.boxSizing = 'border-box';
+              overlay.style.cursor = 'pointer';
+
+              const button = document.createElement('div');
+              button.style.position = 'absolute';
+              button.style.top = '-40px';
+              button.style.left = '0';
+              button.style.padding = '10px 20px';
+              button.style.backgroundColor = '#007bff';
+              button.style.color = 'white';
+              button.style.borderRadius = '8px';
+              button.style.fontSize = '14px';
+              button.style.fontWeight = '600';
+              button.style.cursor = 'pointer';
+              button.style.pointerEvents = 'auto';
+              button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+              button.style.whiteSpace = 'nowrap';
+              button.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+              button.textContent = '✏️ Click to Edit';
+
+              button.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.parent.postMessage({ type: 'EDIT_ZONE_CLICKED_FREEMIUM' }, '*');
+              };
+
+              overlay.onclick = function(e) {
+                if (e.target === overlay) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.parent.postMessage({ type: 'EDIT_ZONE_CLICKED_FREEMIUM' }, '*');
+                }
+              };
+
+              overlay.appendChild(button);
+              document.body.appendChild(overlay);
+
+              currentHighlight = overlay;
+
+              console.log('[Freemium] Highlighted element:', label);
+            }
+
+            function clearHighlight() {
+              if (currentHighlight) {
+                currentHighlight.remove();
+                currentHighlight = null;
+              }
+            }
+          })();
+        `;
+        iframeDoc.body.appendChild(script);
+        console.log('[Freemium] Highlighting script injected successfully');
+
+      } catch (e) {
+        console.log('[Freemium] Could not inject script:', e);
+      }
+    };
+
+    iframe.addEventListener('load', handleIframeLoad);
+    return () => iframe.removeEventListener('load', handleIframeLoad);
+  }, [showVisualPreview]);
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "white" }}>
+      {/* Navigation */}
       <nav style={{
         position: "sticky",
         top: 0,
@@ -32,7 +301,7 @@ export default function HomePage() {
             <Link href="/about" style={{ color: "#333", textDecoration: "none", fontSize: "14px" }}>About</Link>
             <Link href="/contact" style={{ color: "#333", textDecoration: "none", fontSize: "14px" }}>Contact</Link>
             <Link href="/dashboard" style={{ color: "#333", textDecoration: "none", fontSize: "14px" }}>Business Portal</Link>
-            <Link href="/onboard" style={{
+            <Link href="/login" style={{
               padding: "10px 24px",
               backgroundColor: "#007bff",
               color: "white",
@@ -41,21 +310,21 @@ export default function HomePage() {
               fontSize: "14px",
               fontWeight: "500"
             }}>
-              Get Started
+              Sign In
             </Link>
           </div>
         </div>
       </nav>
 
+      {/* Hero Section */}
       <section style={{
-        padding: "100px 24px",
+        padding: "80px 24px 60px",
         background: "linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%)"
       }}>
         <div style={{
-          maxWidth: "900px",
+          maxWidth: showVisualPreview ? "1400px" : "900px",
           margin: "0 auto",
-          textAlign: "center",
-          color: "#333"
+          textAlign: "center"
         }}>
           <h1 style={{
             fontSize: "56px",
@@ -64,60 +333,255 @@ export default function HomePage() {
             lineHeight: "1.2",
             color: "#1a1a1a"
           }}>
-            Edit Your Website
+            Edit Any WordPress Site
             <br />
-            Without the Complex Dashboard
+            Without Touching Code
           </h1>
           <p style={{
             fontSize: "22px",
             marginBottom: "16px",
             color: "#555"
           }}>
-            Click what you see, edit in place, publish instantly.
+            Paste your WordPress URL below to discover editable zones instantly
           </p>
           <p style={{
             fontSize: "16px",
             marginBottom: "40px",
             color: "#777"
           }}>
-            WordPress support available now. More platforms coming soon.
+            No signup required. See what you can edit in seconds.
           </p>
-          <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
-            <Link href="/onboard" style={{
-              padding: "16px 40px",
-              backgroundColor: "#007bff",
-              color: "white",
-              borderRadius: "8px",
-              textDecoration: "none",
-              fontSize: "18px",
-              fontWeight: "600",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
-            }}>
-              Start Free Trial
-            </Link>
-          </div>
+
+          {/* URL Input Card */}
           <div style={{
-            marginTop: "56px",
-            display: "flex",
-            justifyContent: "center",
-            gap: "64px"
+            background: "white",
+            borderRadius: "16px",
+            padding: "40px",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+            marginBottom: "40px",
+            border: "1px solid #e0e0e0"
           }}>
-            <div>
-              <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>1-Click</div>
-              <div style={{ color: "#666" }}>To Edit Any Text</div>
+            <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleDetect()}
+                placeholder="https://yourwordpresssite.com"
+                disabled={detecting || loading}
+                style={{
+                  flex: 1,
+                  padding: "16px 20px",
+                  fontSize: "16px",
+                  border: "2px solid #e0e0e0",
+                  borderRadius: "8px",
+                  outline: "none",
+                  color: "#333"
+                }}
+              />
+              <button
+                onClick={handleDetect}
+                disabled={detecting || loading}
+                style={{
+                  padding: "16px 32px",
+                  backgroundColor: detecting || loading ? "#ccc" : "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: detecting || loading ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  boxShadow: detecting || loading ? "none" : "0 2px 8px rgba(0,123,255,0.3)"
+                }}
+              >
+                {detecting ? "Analyzing..." : loading ? "Discovering..." : "Try It Free"}
+              </button>
             </div>
-            <div>
-              <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>Real-Time</div>
-              <div style={{ color: "#666" }}>Live Updates</div>
-            </div>
-            <div>
-              <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>5 min</div>
-              <div style={{ color: "#666" }}>Setup Time</div>
-            </div>
+
+            {error && (
+              <div style={{ padding: "12px", background: "#fee", border: "1px solid #fcc", borderRadius: "8px", color: "#c33", marginBottom: "20px" }}>
+                {error}
+              </div>
+            )}
+
+            {platformData && platformData.platform !== "unknown" && (
+              <div style={{ padding: "16px", background: "#f0f9ff", borderRadius: "12px", marginBottom: "20px", textAlign: "left", border: "1px solid #bfdbfe" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "32px" }}>
+                    {platformData.platform === "wordpress" ? "📝" : "🛍️"}
+                  </span>
+                  <div>
+                    <div style={{ fontWeight: "600", fontSize: "18px", color: "#0369a1" }}>
+                      {platformData.platform === "wordpress" ? "WordPress" : "Shopify"} Detected!
+                    </div>
+                    <div style={{ fontSize: "14px", color: "#666" }}>
+                      ✅ Can be edited with SafeWebEdit
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {discoveryResult && discoveryResult.success && (
+              <div style={{ marginBottom: "20px", padding: "16px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "8px", textAlign: "left" }}>
+                <div style={{ fontWeight: "600", fontSize: "16px", color: "#15803d", marginBottom: "4px" }}>
+                  ✅ Found {discoveryResult.totalZones} Editable Zones
+                </div>
+                <div style={{ fontSize: "14px", color: "#166534" }}>
+                  Hover over zones below to see them highlighted with "✏️ Click to Edit" buttons
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Visual Preview */}
+          {showVisualPreview && discoveryResult && discoveryResult.zones && (
+            <div style={{ display: "flex", gap: "20px", alignItems: "start" }}>
+              <div style={{ flex: 2 }}>
+                <div style={{
+                  background: "white",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                  border: "1px solid #e0e0e0"
+                }}>
+                  <iframe
+                    ref={iframeRef}
+                    src={`/api/visual-proxy?url=${encodeURIComponent(url)}`}
+                    style={{
+                      width: "100%",
+                      height: "600px",
+                      border: "none"
+                    }}
+                    title="Website Preview"
+                  />
+                </div>
+              </div>
+
+              <div style={{ flex: 1, minWidth: "350px" }}>
+                <div style={{
+                  background: "white",
+                  borderRadius: "12px",
+                  padding: "24px",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                  border: "1px solid #e0e0e0",
+                  maxHeight: "600px",
+                  overflowY: "auto"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                    <h3 style={{ fontSize: "20px", fontWeight: "bold", color: "#333", margin: 0 }}>
+                      Editable Zones
+                    </h3>
+                    <button
+                      onClick={handleUpgrade}
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "#28a745",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        fontSize: "12px"
+                      }}
+                    >
+                      🔓 Start Editing
+                    </button>
+                  </div>
+
+                  <p style={{ fontSize: "13px", color: "#666", marginBottom: "16px" }}>
+                    Hover to see • Click "✏️ Click to Edit" to unlock
+                  </p>
+
+                  {discoveryResult.zones.map((zone, index) => (
+                    <div
+                      key={zone.id}
+                      onMouseEnter={() => handleZoneHover(zone.id, zone)}
+                      onMouseLeave={() => handleZoneHover(null, null)}
+                      style={{
+                        padding: "12px",
+                        marginBottom: "8px",
+                        border: highlightedZone === zone.id ? "2px solid #007bff" : "1px solid #e0e0e0",
+                        borderRadius: "8px",
+                        background: highlightedZone === zone.id ? "#f0f9ff" : "white",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        transform: highlightedZone === zone.id ? "scale(1.02)" : "scale(1)"
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "8px" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: "13px", color: "#333", marginBottom: "4px", fontWeight: highlightedZone === zone.id ? "600" : "400" }}>
+                            {zone.label}
+                          </div>
+                          <div style={{ fontSize: "11px", color: "#999" }}>
+                            Zone {index + 1} • {zone.content.length} chars
+                          </div>
+                        </div>
+                        <div style={{
+                          padding: "4px 8px",
+                          background: "#fef3c7",
+                          color: "#92400e",
+                          borderRadius: "4px",
+                          fontSize: "10px",
+                          fontWeight: "600"
+                        }}>
+                          🔒 Pro
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div style={{ marginTop: "20px", padding: "16px", background: "#f9fafb", borderRadius: "8px", textAlign: "center", border: "1px solid #e0e0e0" }}>
+                    <div style={{ fontSize: "14px", fontWeight: "600", color: "#333", marginBottom: "8px" }}>
+                      Ready to start editing?
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#666", marginBottom: "12px" }}>
+                      Unlock all {discoveryResult.totalZones} zones
+                    </div>
+                    <button
+                      onClick={handleUpgrade}
+                      style={{
+                        width: "100%",
+                        padding: "10px 20px",
+                        backgroundColor: "#007bff",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        cursor: "pointer"
+                      }}
+                    >
+                      Get Started →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!showVisualPreview && (
+            <div style={{ display: "flex", justifyContent: "center", gap: "64px", color: "#333" }}>
+              <div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>1-Click</div>
+                <div style={{ color: "#666" }}>To Edit Any Text</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>Real-Time</div>
+                <div style={{ color: "#666" }}>Live Updates</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>5 min</div>
+                <div style={{ color: "#666" }}>Setup Time</div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
+      {/* CTA Section */}
       <section style={{
         padding: "80px 24px",
         background: "linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%)",
@@ -138,12 +602,14 @@ export default function HomePage() {
           borderRadius: "8px",
           textDecoration: "none",
           fontSize: "18px",
-          fontWeight: "600"
+          fontWeight: "600",
+          boxShadow: "0 4px 12px rgba(0,123,255,0.3)"
         }}>
           Start Free Trial
         </Link>
       </section>
 
+      {/* Footer */}
       <footer style={{ padding: "48px 24px", backgroundColor: "#1a1a1a", color: "white", textAlign: "center" }}>
         <div style={{ fontSize: "20px", fontWeight: "700", marginBottom: "16px" }}>SafeWebEdit</div>
         <div style={{ fontSize: "14px", opacity: 0.6 }}>© 2025 SafeWebEdit. All rights reserved.</div>
