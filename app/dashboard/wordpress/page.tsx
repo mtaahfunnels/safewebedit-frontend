@@ -273,7 +273,7 @@ export default function WebsitesPage() {
   const getPlatformInstructions = (platform: PlatformId) => {
     const instructions: Record<PlatformId, string> = {
       wordpress: 'Create an Application Password in WordPress: Users → Profile → Application Passwords',
-      shopify: 'Create a Custom App in Shopify Admin: Settings → Apps and sales channels → Develop apps → Create app → Configure Admin API scopes (read_content, write_content) → Install app → Reveal token once → Copy Access Token',
+      shopify: 'After clicking Connect, you will be redirected to Shopify to authorize SafeWebEdit. Just click Install and you are done!',
       wix: 'Connect via Wix API (coming soon)',
       squarespace: 'Use your Squarespace account credentials (coming soon)',
       webflow: 'Connect via Webflow API (coming soon)',
@@ -541,87 +541,168 @@ export default function WebsitesPage() {
               </div>
             </div>
 
-            {/* Website URL */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
-                Website URL *
-              </label>
-              <input
-                type="url"
-                value={formData.url}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                placeholder="https://yourwebsite.com"
-                required
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = PLATFORMS[formData.platform].color}
-                onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-              />
-            </div>
+            {/* Conditional Form Fields Based on Platform */}
+            {formData.platform === 'shopify' ? (
+              /* Shopify OAuth - Only Shop Domain */
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
+                  Shop Domain *
+                </label>
+                <input
+                  type="text"
+                  value={formData.url}
+                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                  placeholder="mystore or mystore.myshopify.com"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#96bf48'}
+                  onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                />
+                <p style={{ fontSize: '12px', color: '#666', marginTop: '6px', lineHeight: '1.5' }}>
+                  {getPlatformInstructions('shopify')}
+                </p>
+              </div>
+            ) : formData.platform === 'ghost' ? (
+              /* Ghost - Site URL + Admin API Key */
+              <>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
+                    Ghost Site URL *
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.url}
+                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                    placeholder="https://your-ghost-site.com"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#15171a'}
+                    onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                  />
+                </div>
 
-            {/* Admin Username */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
-                Admin Username *
-              </label>
-              <input
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                placeholder="admin"
-                required
-                disabled={!PLATFORMS[formData.platform].available}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                  opacity: !PLATFORMS[formData.platform].available ? 0.6 : 1
-                }}
-                onFocus={(e) => e.target.style.borderColor = PLATFORMS[formData.platform].color}
-                onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-              />
-            </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
+                    Admin API Key *
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.access_token}
+                    onChange={(e) => setFormData({ ...formData, access_token: e.target.value })}
+                    placeholder="64ab1c2d3e4f5g6h7i8j9k0l:1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#15171a'}
+                    onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                  />
+                  <p style={{ fontSize: '12px', color: '#666', marginTop: '6px', lineHeight: '1.5' }}>
+                    {getPlatformInstructions('ghost')}
+                  </p>
+                </div>
+              </>
+            ) : (
+              /* WordPress - Username + Password */
+              <>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
+                    Website URL *
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.url}
+                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                    placeholder="https://yourwebsite.com"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#21759b'}
+                    onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                  />
+                </div>
 
-            {/* Application Password / API Key */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
-                {formData.platform === 'wordpress' ? 'Application Password' : 'API Key / Password'} *
-              </label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="••••••••••••"
-                required
-                disabled={!PLATFORMS[formData.platform].available}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                  opacity: !PLATFORMS[formData.platform].available ? 0.6 : 1
-                }}
-                onFocus={(e) => e.target.style.borderColor = PLATFORMS[formData.platform].color}
-                onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-              />
-              <p style={{ fontSize: '12px', color: '#666', marginTop: '6px', lineHeight: '1.5' }}>
-                {getPlatformInstructions(formData.platform)}
-              </p>
-            </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
+                    Admin Username *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    placeholder="admin"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#21759b'}
+                    onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' }}>
+                    Application Password *
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="•••• •••• •••• ••••"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#21759b'}
+                    onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                  />
+                  <p style={{ fontSize: '12px', color: '#666', marginTop: '6px', lineHeight: '1.5' }}>
+                    {getPlatformInstructions('wordpress')}
+                  </p>
+                </div>
+              </>
+            )}
 
             {/* Submit Button */}
             <button
