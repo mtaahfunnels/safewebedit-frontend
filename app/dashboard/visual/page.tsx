@@ -416,6 +416,14 @@ export default function VisualEditorPage() {
     try {
       const token = localStorage.getItem('token');
 
+      
+      console.log("\n" + "=".repeat(80));
+      console.log("[FRONTEND] IMAGE SWAP - Starting request");
+      console.log("[FRONTEND] Site ID:", selectedSite);
+      console.log("[FRONTEND] Page ID:", currentPageId);
+      console.log("[FRONTEND] Replacing:", editingImage.src);
+      console.log("=".repeat(80));
+
       const response = await fetch('https://safewebedit.com/api/visual-creator/save-to-wordpress', {
         method: 'POST',
         headers: {
@@ -432,6 +440,11 @@ export default function VisualEditorPage() {
       });
 
       if (response.ok) {
+        const responseData = await response.json();
+        console.log("\n" + "=".repeat(80));
+        console.log("[FRONTEND] SWAP RESPONSE:", JSON.stringify(responseData, null, 2));
+        console.log("=".repeat(80) + "\n");
+        
         setMessage('✓ Image swapped successfully! Refreshing preview...');
 
         const iframe = document.getElementById('wp-preview') as HTMLIFrameElement;
