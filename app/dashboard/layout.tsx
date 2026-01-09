@@ -13,6 +13,7 @@ const DASHBOARD_TABS = [
   { id: 'wordpress', label: 'Websites', path: '/dashboard/wordpress', icon: '🌐' },
   { id: 'visual', label: 'Visual Editor', path: '/dashboard/visual', icon: '🎨' },
   { id: 'command', label: 'AI Command Center', path: '/dashboard/command', icon: '🤖' },
+  { id: 'image-overlay', label: 'Image Overlays', path: '/dashboard/image-overlay', icon: '🖼️' },
   { id: 'settings', label: 'Settings', path: '/dashboard/settings', icon: '⚙️' },
   // Add more tabs here in the future:
   // { id: 'analytics', label: 'Analytics', path: '/dashboard/analytics', icon: '📈' },

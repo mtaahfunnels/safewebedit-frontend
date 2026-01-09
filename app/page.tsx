@@ -37,6 +37,7 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [showVisualPreview, setShowVisualPreview] = useState(false);
   const [highlightedZone, setHighlightedZone] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const handleDetect = async () => {
@@ -108,14 +109,25 @@ export default function HomePage() {
   };
 
   const handleZoneHover = (zoneId: string | null, zone: Zone | null) => {
+    console.log("[🔍 DIAGNOSTIC] handleZoneHover called:", { zoneId, location: zone?.location, contentPreview: zone?.content?.substring(0,40) });
+    // 🔍 DEBUG: Log hover event
+    setDebugInfo(prev => [...prev.slice(-9), {
+      time: new Date().toLocaleTimeString(),
+      action: zone ? 'hover' : 'clear',
+      zoneId: zoneId,
+      location: zone?.location || null,
+      contentPreview: zone?.content?.substring(0, 30) || null
+    }]);
     setHighlightedZone(zoneId);
 
     if (iframeRef.current && iframeRef.current.contentWindow) {
       if (zone) {
+        // ⭐ NOW PASSING LOCATION (SELECTOR) TO IFRAME
         iframeRef.current.contentWindow.postMessage({
           type: 'HIGHLIGHT_ZONE_FREEMIUM',
           content: zone.content,
-          label: zone.label
+          label: zone.label,
+          location: zone.location  // CSS selector like "article p" or "main h2"
         }, '*');
       } else {
         iframeRef.current.contentWindow.postMessage({
@@ -150,40 +162,73 @@ export default function HomePage() {
           return;
         }
 
-        // Inject freemium highlighting script
+        // Inject PRECISE freemium highlighting script
         const script = iframeDoc.createElement('script');
         script.textContent = `
           (function() {
-            console.log('[SafeWebEdit Freemium] Highlighting script loaded');
+            console.log('[SafeWebEdit Freemium] Precise highlighting script loaded');
 
             let currentHighlight = null;
 
             window.addEventListener('message', function(event) {
+              console.log("[🔍 IFRAME] Message received:", event.data.type);
               if (event.data.type === 'HIGHLIGHT_ZONE_FREEMIUM') {
                 clearHighlight();
-                highlightContent(event.data.content, event.data.label);
+                highlightContent(event.data.content, event.data.label, event.data.location);
               } else if (event.data.type === 'CLEAR_HIGHLIGHT_FREEMIUM') {
                 clearHighlight();
               }
             });
 
-            function highlightContent(content, label) {
-              const searchText = content.substring(0, Math.min(100, content.length));
+            function highlightContent(content, label, location) {
+              console.log("[🔍 IFRAME] highlightContent called:", { location, contentLength: content.length, contentPreview: content.substring(0,40) });
+              // ⭐ ONLY SEARCH WITHIN SPECIFIC SELECTOR (article p, main h2, etc.)
+              let targetElements;
 
-              // Find element containing this text
-              const walker = document.createTreeWalker(
-                document.body,
-                NodeFilter.SHOW_TEXT,
-                null
-              );
+              try {
+                targetElements = document.querySelectorAll(location);
+              } catch (e) {
+                console.log('[Freemium] Invalid selector:', location);
+                return;
+              }
 
+              if (!targetElements || targetElements.length === 0) {
+                console.log('[Freemium] No elements found for selector:', location);
+                return;
+              }
+
+              // Search for EXACT text match within target elements only
               let found = false;
-              let node;
-              while ((node = walker.nextNode()) && !found) {
-                const text = node.textContent.trim();
-                if (text && searchText.includes(text.substring(0, 50))) {
-                  const element = node.parentElement;
-                  if (element && element.offsetParent !== null) {
+              for (let i = 0; i < targetElements.length && !found; i++) {
+                const element = targetElements[i];
+                
+                // ✅ CHECK PARENT ELEMENTS - Exclude footer/header/nav
+                let parent = element;
+                let isInExcludedArea = false;
+                let excludedBy = null;
+                while (parent && parent !== document.body) {
+                  const tagName = parent.tagName ? parent.tagName.toLowerCase() : '';
+                  if (tagName === 'footer' || tagName === 'header' || tagName === 'nav') {
+                    isInExcludedArea = true;
+                    excludedBy = tagName;
+                    break;
+                  }
+                  parent = parent.parentElement;
+                }
+                
+                if (isInExcludedArea) {
+                  console.log("[🚫 IFRAME] Element excluded - inside:", excludedBy, "- Text:", element.textContent.substring(0,30));
+                  continue; // Skip elements inside footer/header/nav
+                }
+                
+                const elementText = element.textContent.trim().replace(/\s+/g, ' ');
+                const searchText = content.trim().replace(/\s+/g, ' ');
+
+                // ✅ STRICT EXACT MATCH ONLY - No fuzzy matching
+                if (elementText === searchText) {
+                  console.log("[✅ IFRAME] MATCH FOUND! Highlighting element", i, "with text:", elementText.substring(0,40));
+                  // Make sure element is visible
+                  if (element.offsetParent !== null) {
                     highlightElement(element, label);
                     found = true;
                   }
@@ -191,7 +236,7 @@ export default function HomePage() {
               }
 
               if (!found) {
-                console.log('[Freemium] Could not find element for:', searchText.substring(0, 30));
+                console.log('[Freemium] Could not find exact match in', location, 'for:', content.substring(0, 30));
               }
             }
 
@@ -260,7 +305,7 @@ export default function HomePage() {
           })();
         `;
         iframeDoc.body.appendChild(script);
-        console.log('[Freemium] Highlighting script injected successfully');
+        console.log('[Freemium] Precise highlighting script injected successfully');
 
       } catch (e) {
         console.log('[Freemium] Could not inject script:', e);
@@ -426,10 +471,10 @@ export default function HomePage() {
             {discoveryResult && discoveryResult.success && (
               <div style={{ marginBottom: "20px", padding: "16px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "8px", textAlign: "left" }}>
                 <div style={{ fontWeight: "600", fontSize: "16px", color: "#15803d", marginBottom: "4px" }}>
-                  ✅ Found {discoveryResult.totalZones} Editable Zones
+                  ✅ Found {discoveryResult.totalZones} Validated Editable Zones
                 </div>
                 <div style={{ fontSize: "14px", color: "#166534" }}>
-                  Hover over zones below to see them highlighted with "✏️ Click to Edit" buttons
+                  Hover over zones below to see them highlighted • Only validated zones shown
                 </div>
               </div>
             )}
@@ -490,9 +535,31 @@ export default function HomePage() {
                     </button>
                   </div>
 
-                  <p style={{ fontSize: "13px", color: "#666", marginBottom: "16px" }}>
+                  <p style={{ fontSize: "13px", color: "#666", marginBottom: "8px" }}>
                     Hover to see • Click "✏️ Click to Edit" to unlock
                   </p>
+                  
+                  <div style={{ 
+                    backgroundColor: "#fff3cd", 
+                    border: "1px solid #ffc107", 
+                    borderRadius: "6px", 
+                    padding: "12px", 
+                    marginBottom: "16px",
+                    fontSize: "12px",
+                    color: "#856404"
+                  }}>
+                    <strong>⚠️ Note:</strong> Some zones cannot be edited including:
+                    <ul style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
+                      <li>Footer copyright text</li>
+                      <li>Header navigation menus</li>
+                      <li>Sidebar widgets</li>
+                      <li>Text in buttons or images</li>
+                      <li>Content from third-party plugins</li>
+                    </ul>
+                    <div style={{ marginTop: "8px", fontSize: "11px", fontStyle: "italic" }}>
+                      Only text in your WordPress posts and pages can be edited.
+                    </div>
+                  </div>
 
                   {discoveryResult.zones.map((zone, index) => (
                     <div

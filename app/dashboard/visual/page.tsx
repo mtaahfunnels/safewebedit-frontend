@@ -19,6 +19,22 @@ interface Slot {
   site_name: string;
 }
 
+interface ImageData {
+  cssSelector: string;
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+}
+
+interface ImageMetadata {
+  width: number;
+  height: number;
+  format: string;
+  size: number;
+  aspectRatio: string;
+}
+
 export default function VisualEditorPage() {
   const router = useRouter();
   const [sites, setSites] = useState<Site[]>([]);
@@ -31,6 +47,19 @@ export default function VisualEditorPage() {
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
   const [editContent, setEditContent] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Image swap state
+  const [editingImage, setEditingImage] = useState<ImageData | null>(null);
+  const [originalMetadata, setOriginalMetadata] = useState<ImageMetadata | null>(null);
+  const [detectedText, setDetectedText] = useState('');
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [includeTextInPrompt, setIncludeTextInPrompt] = useState(true);
+  const [hasTextOverlay, setHasTextOverlay] = useState(false);
+  const [overlayInfo, setOverlayInfo] = useState<any>(null);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState('');
+  const [newMetadata, setNewMetadata] = useState<ImageMetadata | null>(null);
+  const [generatingImage, setGeneratingImage] = useState(false);
 
   // Navigation tracking state
   const [currentPageId, setCurrentPageId] = useState<number>(15);
@@ -52,7 +81,6 @@ export default function VisualEditorPage() {
     }
   }, [selectedSite]);
 
-
   // Track iframe navigation and update zones
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -60,18 +88,15 @@ export default function VisualEditorPage() {
 
     const handleIframeLoad = async () => {
       try {
-        // Try to get URL from iframe (may fail due to CORS)
         let iframeHref;
         try {
           iframeHref = iframe.contentWindow?.location.href;
         } catch (e) {
-          // CORS restriction - can't access iframe URL directly
           console.log('[Visual Editor] CORS restriction on iframe URL');
           return;
         }
-        // Extract real URL from proxy URL if needed
         if (!iframeHref) return;
-        
+
         let actualUrl = iframeHref;
         if (iframeHref.includes('/api/visual-proxy?url=')) {
           try {
@@ -79,25 +104,22 @@ export default function VisualEditorPage() {
             const urlParam = proxyUrl.searchParams.get('url');
             if (urlParam) {
               actualUrl = decodeURIComponent(urlParam);
-              console.log('[Visual Editor] Extracted from proxy:', actualUrl);
             }
           } catch (e) {
             console.error('[Visual Editor] Failed to parse proxy URL:', e);
           }
         }
-        
+
         if (!actualUrl.includes(currentUrl)) return;
 
         const url = new URL(actualUrl);
         const path = url.pathname;
 
-        // Skip if same page
         if (path === currentPath) return;
 
         console.log('[Visual Editor] Navigation detected:', path);
         setCurrentPath(path);
 
-        // Get page ID from backend
         const token = localStorage.getItem('token');
         const response = await fetch(
           `https://safewebedit.com/api/wordpress/page-id?url=${encodeURIComponent(path)}&site_id=${selectedSite}`,
@@ -108,14 +130,9 @@ export default function VisualEditorPage() {
 
         if (response.ok) {
           const data = await response.json();
-          console.log('[Visual Editor] Page info:', data);
-
           setCurrentPageId(data.pageId);
           setCurrentPageTitle(data.title);
-
-          // Reload zones for this page
           await loadSlotsForSite();
-
           setMessage(`Navigated to: ${data.title}`);
           setTimeout(() => setMessage(''), 3000);
         }
@@ -128,22 +145,62 @@ export default function VisualEditorPage() {
     iframe.addEventListener('load', handleIframeLoad);
     return () => iframe.removeEventListener('load', handleIframeLoad);
   }, [selectedSite, currentPath, currentUrl]);
-// Listen for element clicks from iframe (enhanced auto-discovery)
+
+  // Listen for element and image clicks from iframe
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      // Handle element clicks (new auto-discovery approach)
+      // Handle image clicks
+      if (event.data.type === 'IMAGE_CLICKED') {
+        console.log('[Visual Editor] Image clicked:', event.data.data);
+        const imageData = event.data.data as ImageData;
+
+        // Close text editor if open
+        setEditingSlot(null);
+
+        // Set image editing mode
+        setEditingImage(imageData);
+        setGeneratedImage('');
+        setNewMetadata(null);
+        setImagePrompt(''); // Clear old prompt
+
+        // Extract metadata from original image
+        const metadata: ImageMetadata = {
+          width: imageData.width || 800,
+          height: imageData.height || 600,
+          format: imageData.src.split('.').pop()?.toUpperCase() || 'UNKNOWN',
+          size: 0, // Will be fetched
+          aspectRatio: imageData.width && imageData.height
+            ? `${imageData.width}:${imageData.height}`
+            : 'Unknown'
+        };
+        setOriginalMetadata(metadata);
+
+        // Fetch image size
+        fetchImageSize(imageData.src);
+
+        // Detect text from the image
+        detectTextFromImage(imageData.src);
+
+        // ANALYZE IMAGE TO GENERATE PROMPT
+        analyzeImageToPrompt(imageData.src);
+
+        return;
+      }
+
+      // Handle element clicks (text)
       if (event.data.type === 'ELEMENT_CLICKED') {
         console.log('[Visual Editor] Element clicked:', event.data.data);
         const { cssSelector, textContent, elementText } = event.data.data;
+
+        // Close image editor if open
+        setEditingImage(null);
 
         const token = localStorage.getItem('token');
         if (!token) return;
 
         try {
-          // Show loading message
           setMessage('Creating editable zone...');
 
-          // Create or get slot for this element
           const response = await fetch('https://safewebedit.com/api/auto-discovery/create-slot', {
             method: 'POST',
             headers: {
@@ -164,7 +221,6 @@ export default function VisualEditorPage() {
             const data = await response.json();
             const slot = data.slot;
 
-            // Add to slots list if new
             if (data.created) {
               setSlots(prev => [...prev, {
                 id: slot.id,
@@ -177,7 +233,6 @@ export default function VisualEditorPage() {
               }]);
             }
 
-            // Open editor with this slot
             setEditingSlot({
               id: slot.id,
               marker_name: slot.marker_name,
@@ -203,9 +258,7 @@ export default function VisualEditorPage() {
         }
       }
 
-      // Handle legacy slot clicks (if using manual slots)
       if (event.data.type === 'SLOT_CLICKED') {
-        console.log('[Visual Editor] Slot clicked:', event.data.markerName);
         const slot = slots.find(s => s.marker_name === event.data.markerName);
         if (slot) {
           setEditingSlot(slot);
@@ -216,7 +269,193 @@ export default function VisualEditorPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [slots, selectedSite]);
+  }, [slots, selectedSite, currentPageId]);
+
+  const fetchImageSize = async (imageUrl: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      setOriginalMetadata(prev => prev ? { ...prev, size: blob.size } : null);
+    } catch (err) {
+      console.log('[Visual Editor] Could not fetch image size');
+    }
+  };
+
+  const detectTextFromImage = async (imageUrl: string) => {
+    try {
+      setDetectedText('Detecting text...');
+      const token = localStorage.getItem('token');
+      const response = await fetch('https://safewebedit.com/api/image-text/detect', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ image_url: imageUrl })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.text_regions && data.text_regions.length > 0) {
+          const detectedTexts = data.text_regions.map((r: any) => r.text).join(' ');
+          setDetectedText(detectedTexts);
+          console.log('[Visual Editor] Detected text:', detectedTexts);
+        } else {
+          setDetectedText('No text detected');
+        }
+      } else {
+        setDetectedText('No text detected');
+      }
+    } catch (err) {
+      console.log('[Visual Editor] Could not detect text from image');
+      setDetectedText('Text detection failed');
+    }
+  };
+
+  const analyzeImageToPrompt = async (imageUrl: string) => {
+    try {
+      setAnalyzingImage(true);
+      setImagePrompt('Analyzing image...');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('https://safewebedit.com/api/ai-image-gen/analyze', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ image_url: imageUrl })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setImagePrompt(data.prompt || 'A professional image');
+        console.log('[Visual Editor] Generated prompt:', data.prompt);
+      } else {
+        setImagePrompt('A professional marketing image with gradient background');
+      }
+    } catch (err) {
+      console.log('[Visual Editor] Could not analyze image');
+      setImagePrompt('A professional marketing image with gradient background');
+    } finally {
+      setAnalyzingImage(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    if (!editingImage || !originalMetadata || !imagePrompt.trim()) {
+      setError('Please enter a prompt to generate the image');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    setGeneratingImage(true);
+    setMessage('Generating image with AI...');
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+
+      // Build full prompt including detected text if available
+      let fullPrompt = imagePrompt.trim();
+      if (includeTextInPrompt && detectedText && detectedText !== 'No text detected' && detectedText !== 'Detecting text...' && detectedText !== 'Text detection failed') {
+        fullPrompt = `${imagePrompt.trim()}. Include this text in the image: "${detectedText}"`;
+      }
+
+      const response = await fetch('https://safewebedit.com/api/ai-image-gen/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: fullPrompt,
+          width: originalMetadata.width,
+          height: originalMetadata.height,
+          user_tier: 'pro'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGeneratedImage(data.image);
+
+        // Extract metadata from generated image
+        const base64Data = data.image.split(',')[1];
+        const binaryData = atob(base64Data);
+        const imageSize = binaryData.length;
+
+        setNewMetadata({
+          width: originalMetadata.width,
+          height: originalMetadata.height,
+          format: 'PNG',
+          size: imageSize,
+          aspectRatio: originalMetadata.aspectRatio
+        });
+
+        setMessage('✓ Image generated! Review and compare metadata.');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to generate image');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (err: any) {
+      setError('Failed to generate image');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  const handleSwapImage = async () => {
+    if (!editingImage || !generatedImage) return;
+
+    setSaving(true);
+    setMessage('Swapping image in WordPress...');
+
+    try {
+      const token = localStorage.getItem('token');
+
+      const response = await fetch('https://safewebedit.com/api/visual-creator/save-to-wordpress', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          site_id: selectedSite,
+          image_base64: generatedImage,
+          filename: `ai-gen-${Date.now()}.png`,
+          replace_image_url: editingImage.src,
+          page_id: currentPageId
+        })
+      });
+
+      if (response.ok) {
+        setMessage('✓ Image swapped successfully! Refreshing preview...');
+
+        const iframe = document.getElementById('wp-preview') as HTMLIFrameElement;
+        if (iframe) {
+          setTimeout(() => {
+            iframe.src = iframe.src;
+            setEditingImage(null);
+            setGeneratedImage('');
+            setMessage('✓ Image updated successfully!');
+            setTimeout(() => setMessage(''), 3000);
+          }, 1000);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to swap image');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (err: any) {
+      setError('Failed to swap image');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const loadSites = async () => {
     const token = localStorage.getItem('token');
@@ -266,12 +505,7 @@ export default function VisualEditorPage() {
     }
   };
 
-  const handleSlotClick = (slot: Slot) => {
-    setEditingSlot(slot);
-    setEditContent(slot.content);
-  };
-
-const handleSave = async () => {
+  const handleSave = async () => {
     if (!editingSlot) return;
 
     const token = localStorage.getItem('token');
@@ -280,7 +514,6 @@ const handleSave = async () => {
     setError('');
 
     try {
-      // Use auto-discovery update endpoint which updates WordPress directly
       const response = await fetch(
         `https://safewebedit.com/api/auto-discovery/update-content`,
         {
@@ -303,7 +536,6 @@ const handleSave = async () => {
           s.id === editingSlot.id ? { ...s, content: editContent } : s
         ));
 
-        // Refresh iframe to show changes
         const iframe = document.getElementById('wp-preview') as HTMLIFrameElement;
         if (iframe) {
           setTimeout(() => {
@@ -323,6 +555,14 @@ const handleSave = async () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return 'Calculating...';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   if (loading) {
@@ -380,7 +620,7 @@ const handleSave = async () => {
         </select>
 
         <div style={{ fontSize: '12px', color: '#666', marginLeft: 'auto' }}>
-          Hover over any text to highlight it, then click to edit
+          Click any text or image to edit
         </div>
       </div>
 
@@ -408,7 +648,7 @@ const handleSave = async () => {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <div style={{
-          flex: editingSlot ? '0 0 calc(100% - 420px)' : '1',
+          flex: (editingSlot || editingImage) ? '0 0 calc(100% - 450px)' : '1',
           backgroundColor: '#f5f5f5',
           position: 'relative',
           overflow: 'hidden',
@@ -434,9 +674,10 @@ const handleSave = async () => {
           )}
         </div>
 
+        {/* TEXT EDITOR SIDEBAR */}
         {editingSlot && (
           <div style={{
-            flex: '0 0 420px',
+            flex: '0 0 450px',
             backgroundColor: 'white',
             borderLeft: '1px solid #e0e0e0',
             display: 'flex',
@@ -536,6 +777,303 @@ const handleSave = async () => {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* IMAGE AI GENERATION SIDEBAR */}
+        {editingImage && (
+          <div style={{
+            flex: '0 0 450px',
+            backgroundColor: 'white',
+            borderLeft: '1px solid #e0e0e0',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              padding: '16px',
+              borderBottom: '1px solid #e0e0e0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>
+                🔄 AI Image Generator
+              </h3>
+              <button
+                onClick={() => {
+                  setEditingImage(null);
+                  setGeneratedImage('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
+              {/* Original Image */}
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#1f2937' }}>
+                  Original Image
+                </h4>
+                <img
+                  src={editingImage.src}
+                  alt="Original"
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '6px',
+                    marginBottom: '8px'
+                  }}
+                />
+                {originalMetadata && (
+                  <div style={{
+                    backgroundColor: '#f9fafb',
+                    padding: '12px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#4b5563'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span><strong>Dimensions:</strong></span>
+                      <span>{originalMetadata.width} × {originalMetadata.height}px</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span><strong>Format:</strong></span>
+                      <span>{originalMetadata.format}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span><strong>Size:</strong></span>
+                      <span>{formatFileSize(originalMetadata.size)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span><strong>Aspect Ratio:</strong></span>
+                      <span>{originalMetadata.aspectRatio}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Detected Text */}
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#1f2937' }}>
+                  Text in Image
+                </h4>
+                <div style={{
+                  padding: '10px',
+                  backgroundColor: '#fef3c7',
+                  border: '1px solid #fbbf24',
+                  borderRadius: '4px',
+                  fontSize: '13px',
+                  color: '#78350f',
+                  fontStyle: detectedText === 'Detecting text...' ? 'italic' : 'normal'
+                }}>
+                  {detectedText || 'Detecting text...'}
+                </div>
+              </div>
+
+              {/* Prompt Input - PRE-FILLED WITH AI ANALYSIS */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: '600', margin: 0, color: '#1f2937' }}>
+                    Image Prompt {analyzingImage && <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 'normal' }}>(Analyzing...)</span>}
+                  </h4>
+                  {!analyzingImage && imagePrompt && (
+                    <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '600' }}>
+                      ✓ Auto-generated
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                  disabled={analyzingImage}
+                  placeholder="AI is analyzing the image to generate a prompt..."
+                  style={{
+                    width: '100%',
+                    minHeight: '120px',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    backgroundColor: analyzingImage ? '#f9fafb' : 'white',
+                    opacity: analyzingImage ? 0.7 : 1
+                  }}
+                />
+                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                  💡 This prompt was reverse-engineered from your image. Modify it to change specific aspects.
+                </div>
+                {detectedText && detectedText !== 'No text detected' && detectedText !== 'Detecting text...' && detectedText !== 'Text detection failed' && (
+                  <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '13px', color: '#166534' }}>
+                      <input
+                        type="checkbox"
+                        checked={includeTextInPrompt}
+                        onChange={(e) => setIncludeTextInPrompt(e.target.checked)}
+                        style={{ marginRight: '8px', cursor: 'pointer', width: '16px', height: '16px' }}
+                      />
+                      <span style={{ fontWeight: '600' }}>Include detected text in new image: </span>
+                      <span style={{ marginLeft: '4px', fontStyle: 'italic' }}>"{detectedText}"</span>
+                    </label>
+                    <div style={{ fontSize: '11px', color: '#15803d', marginTop: '4px', marginLeft: '24px' }}>
+                      {includeTextInPrompt ? '✓ Text will be included in AI prompt' : '✗ Text will be omitted from generated image'}
+                    </div>
+                  </div>
+                )}
+                <button
+                  onClick={handleGenerateImage}
+                  disabled={generatingImage || analyzingImage || !imagePrompt.trim()}
+                  style={{
+                    width: '100%',
+                    marginTop: '8px',
+                    padding: '10px',
+                    backgroundColor: generatingImage || analyzingImage || !imagePrompt.trim() ? '#d1d5db' : '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: generatingImage || analyzingImage || !imagePrompt.trim() ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {generatingImage ? '🎨 Generating...' : '✨ Generate Image'}
+                </button>
+              </div>
+
+              {/* Generated Image */}
+              {generatedImage && newMetadata && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#1f2937' }}>
+                    Generated Image
+                  </h4>
+                  <img
+                    src={generatedImage}
+                    alt="Generated"
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      border: '2px solid #10b981',
+                      borderRadius: '6px',
+                      marginBottom: '8px'
+                    }}
+                  />
+                  <div style={{
+                    backgroundColor: '#ecfdf5',
+                    padding: '12px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#065f46'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span><strong>Dimensions:</strong></span>
+                      <span>{newMetadata.width} × {newMetadata.height}px</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span><strong>Format:</strong></span>
+                      <span>{newMetadata.format}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span><strong>Size:</strong></span>
+                      <span>{formatFileSize(newMetadata.size)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span><strong>Aspect Ratio:</strong></span>
+                      <span>{newMetadata.aspectRatio}</span>
+                    </div>
+                  </div>
+
+                  {/* Metadata Comparison */}
+                  {originalMetadata && (
+                    <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#eff6ff', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: '#1e40af', marginBottom: '6px' }}>
+                        ✓ Metadata Match
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#3730a3' }}>
+                        {newMetadata.width === originalMetadata.width && newMetadata.height === originalMetadata.height
+                          ? '✓ Dimensions match perfectly'
+                          : '⚠️ Dimensions differ'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              padding: '16px',
+              borderTop: '1px solid #e0e0e0',
+              display: 'flex',
+              gap: '8px'
+            }}>
+              {generatedImage ? (
+                <>
+                  <button
+                    onClick={handleSwapImage}
+                    disabled={saving}
+                    style={{
+                      flex: 1,
+                      padding: '12px 24px',
+                      backgroundColor: saving ? '#ccc' : '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: saving ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {saving ? 'Swapping...' : '🔄 Swap Image'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGeneratedImage('');
+                      setNewMetadata(null);
+                    }}
+                    disabled={saving}
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: 'white',
+                      color: '#666',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      cursor: saving ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    Try Again
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditingImage(null);
+                    setImagePrompt('');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    backgroundColor: 'white',
+                    color: '#666',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           </div>
         )}
