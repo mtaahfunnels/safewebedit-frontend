@@ -1,0 +1,4 @@
+Contact: mailto:support@safewebedit.com
+Expires: 2027-01-10T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://safewebedit.com/.well-known/security.txt

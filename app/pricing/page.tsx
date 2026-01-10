@@ -50,85 +50,88 @@ export default function PricingPage() {
 
       {/* Hero Section */}
       <section style={{
-        padding: "80px 24px 60px",
+        padding: "100px 24px",
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
         color: "white",
         textAlign: "center"
       }}>
-        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-          <h1 style={{ fontSize: "48px", fontWeight: "700", marginBottom: "16px" }}>
-            Try Free, Upgrade for AI
+        <div style={{ maxWidth: "700px", margin: "0 auto" }}>
+          <h1 style={{ fontSize: "56px", fontWeight: "700", marginBottom: "20px", lineHeight: "1.2" }}>
+            Simple, Pay-As-You-Go Pricing
           </h1>
-          <p style={{ fontSize: "20px", opacity: 0.95 }}>
-            Discover zones for free. Unlock AI editing when ready.
+          <p style={{ fontSize: "22px", opacity: 0.95, marginBottom: "40px" }}>
+            Start free. Top up when you need more. No subscriptions.
           </p>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section style={{ padding: "80px 24px" }}>
-        <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+      {/* Simple 2-Option Pricing */}
+      <section style={{ padding: "80px 24px", backgroundColor: "#f8f9fa" }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto" }}>
           <div style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
             gap: "32px"
           }}>
-            {/* Free Plan */}
+            {/* Option 1: Free to Start */}
             <div style={{
-              padding: "48px 32px",
+              padding: "48px 40px",
               backgroundColor: "white",
               borderRadius: "16px",
               border: "2px solid #e0e0e0",
               textAlign: "center"
             }}>
-              <h3 style={{ fontSize: "24px", marginBottom: "8px", color: "#333" }}>Free Discovery</h3>
-              <div style={{ fontSize: "56px", fontWeight: "700", marginBottom: "8px", color: "#333" }}>$0</div>
-              <div style={{ marginBottom: "32px", color: "#666" }}>forever</div>
-              <div style={{ textAlign: "left", marginBottom: "32px", color: "#333" }}>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid #f0f0f0" }}>
-                  <span style={{ color: "#28a745", fontWeight: "bold" }}>✓</span> Platform detection
+              <div style={{ fontSize: "18px", fontWeight: "600", color: "#666", marginBottom: "16px" }}>
+                Start Free
+              </div>
+              <div style={{ fontSize: "72px", fontWeight: "700", marginBottom: "12px", color: "#2c3e50" }}>
+                $0
+              </div>
+              <div style={{ fontSize: "16px", color: "#666", marginBottom: "32px" }}>
+                10 free credits to try it out
+              </div>
+
+              <div style={{
+                textAlign: "left",
+                marginBottom: "32px",
+                padding: "24px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "12px"
+              }}>
+                <div style={{ fontSize: "14px", color: "#666", marginBottom: "12px" }}>
+                  <strong style={{ color: "#2c3e50" }}>What you get:</strong>
                 </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid #f0f0f0" }}>
-                  <span style={{ color: "#28a745", fontWeight: "bold" }}>✓</span> Zone discovery
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid #f0f0f0" }}>
-                  <span style={{ color: "#28a745", fontWeight: "bold" }}>✓</span> Visual preview
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid #f0f0f0" }}>
-                  <span style={{ color: "#28a745", fontWeight: "bold" }}>✓</span> No signup required
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid #f0f0f0", opacity: 0.4 }}>
-                  <span style={{ color: "#999" }}>✗</span> Edit text
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid #f0f0f0", opacity: 0.4 }}>
-                  <span style={{ color: "#999" }}>✗</span> AI image generation
-                </div>
-                <div style={{ padding: "12px 0", opacity: 0.4 }}>
-                  <span style={{ color: "#999" }}>✗</span> Image swapping
+                <div style={{ fontSize: "14px", color: "#666", lineHeight: "1.8" }}>
+                  • 10 text edits<br />
+                  • or 5 image swaps<br />
+                  • or 1 AI-generated image<br />
+                  • No signup required
                 </div>
               </div>
+
               <Link href="/" style={{
                 display: "block",
-                padding: "14px",
-                backgroundColor: "#f0f0f0",
-                color: "#333",
+                padding: "16px",
+                backgroundColor: "#007bff",
+                color: "white",
                 borderRadius: "8px",
                 textDecoration: "none",
-                fontWeight: "600"
+                fontWeight: "600",
+                fontSize: "16px"
               }}>
                 Try Now
               </Link>
             </div>
 
-            {/* Pro Plan */}
+            {/* Option 2: Pay As You Go */}
             <div style={{
-              padding: "48px 32px",
-              backgroundColor: "#007bff",
-              color: "white",
+              padding: "48px 40px",
+              backgroundColor: "white",
               borderRadius: "16px",
+              border: "3px solid #007bff",
               textAlign: "center",
               position: "relative",
-              boxShadow: "0 8px 24px rgba(0,123,255,0.3)"
+              boxShadow: "0 8px 24px rgba(0,123,255,0.15)"
             }}>
               <div style={{
                 position: "absolute",
@@ -140,95 +143,140 @@ export default function PricingPage() {
                 padding: "6px 20px",
                 borderRadius: "20px",
                 fontSize: "12px",
-                fontWeight: "600"
+                fontWeight: "700",
+                letterSpacing: "0.5px"
               }}>
-                MOST POPULAR
+                RECOMMENDED
               </div>
-              <h3 style={{ fontSize: "24px", marginBottom: "8px" }}>Pro</h3>
-              <div style={{ fontSize: "56px", fontWeight: "700", marginBottom: "8px" }}>$29</div>
-              <div style={{ marginBottom: "32px", opacity: 0.9 }}>per month</div>
-              <div style={{ textAlign: "left", marginBottom: "32px" }}>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  ✓ Everything in Free, plus:
+
+              <div style={{ fontSize: "18px", fontWeight: "600", color: "#666", marginBottom: "16px" }}>
+                Pay As You Go
+              </div>
+              <div style={{ fontSize: "72px", fontWeight: "700", marginBottom: "12px", color: "#2c3e50" }}>
+                $10+
+              </div>
+              <div style={{ fontSize: "16px", color: "#666", marginBottom: "32px" }}>
+                Simple top-ups, no commitment
+              </div>
+
+              <div style={{
+                textAlign: "left",
+                marginBottom: "32px",
+                padding: "24px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "12px"
+              }}>
+                <div style={{ fontSize: "14px", color: "#666", marginBottom: "12px" }}>
+                  <strong style={{ color: "#2c3e50" }}>Quick buy options:</strong>
                 </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  <strong>✓ AI Image Generation</strong> 
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  ✓ Image swapping (1-click)
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  ✓ Edit text zones
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  ✓ Unlimited sites
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  ✓ Unlimited edits
-                </div>
-                <div style={{ padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  ✓ Real-time updates
-                </div>
-                <div style={{ padding: "12px 0" }}>
-                  ✓ Priority support
+                <div style={{ fontSize: "14px", color: "#666", lineHeight: "1.8" }}>
+                  • $10 → 50 text edits<br />
+                  • $20 → 100 text edits<br />
+                  • $50 → 250 text edits<br />
+                  • Custom amount ($5-$1000)
                 </div>
               </div>
-              <Link href="/onboard" style={{
+
+              <Link href="/dashboard/credits" style={{
                 display: "block",
-                padding: "14px",
-                backgroundColor: "white",
-                color: "#007bff",
+                padding: "16px",
+                backgroundColor: "#007bff",
+                color: "white",
                 borderRadius: "8px",
                 textDecoration: "none",
-                fontWeight: "600"
+                fontWeight: "600",
+                fontSize: "16px"
               }}>
-                Start 14-Day Free Trial
+                Get Started
               </Link>
-              <p style={{ marginTop: "16px", fontSize: "13px", opacity: 0.9 }}>
-                No credit card required
-              </p>
+            </div>
+          </div>
+
+          {/* Credit Pricing Guide */}
+          <div style={{
+            marginTop: "60px",
+            padding: "40px",
+            backgroundColor: "white",
+            borderRadius: "16px",
+            border: "1px solid #e0e0e0"
+          }}>
+            <h3 style={{ fontSize: "24px", fontWeight: "600", textAlign: "center", marginBottom: "32px", color: "#2c3e50" }}>
+              How Credits Work
+            </h3>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: "32px",
+              textAlign: "center"
+            }}>
+              <div>
+                <div style={{ fontSize: "48px", marginBottom: "12px" }}>✏️</div>
+                <div style={{ fontSize: "32px", fontWeight: "700", color: "#2c3e50", marginBottom: "8px" }}>1</div>
+                <div style={{ fontSize: "14px", color: "#666" }}>credit per text edit</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "48px", marginBottom: "12px" }}>🖼️</div>
+                <div style={{ fontSize: "32px", fontWeight: "700", color: "#2c3e50", marginBottom: "8px" }}>2</div>
+                <div style={{ fontSize: "14px", color: "#666" }}>credits per image swap</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "48px", marginBottom: "12px" }}>🎨</div>
+                <div style={{ fontSize: "32px", fontWeight: "700", color: "#2c3e50", marginBottom: "8px" }}>10</div>
+                <div style={{ fontSize: "14px", color: "#666" }}>credits per AI image</div>
+              </div>
+            </div>
+            <div style={{
+              marginTop: "32px",
+              padding: "20px",
+              backgroundColor: "#f8f9fa",
+              borderRadius: "8px",
+              textAlign: "center",
+              fontSize: "14px",
+              color: "#666"
+            }}>
+              💡 <strong style={{ color: "#2c3e50" }}>Credits never expire.</strong> Use them whenever you need, on unlimited sites.
             </div>
           </div>
         </div>
       </section>
 
       {/* FAQ Section */}
-      <section style={{ padding: "60px 24px", backgroundColor: "#f8f9fa" }}>
+      <section style={{ padding: "60px 24px", backgroundColor: "white" }}>
         <div style={{ maxWidth: "800px", margin: "0 auto" }}>
           <h2 style={{ fontSize: "32px", fontWeight: "700", textAlign: "center", marginBottom: "48px", color: "#333" }}>
             Frequently Asked Questions
           </h2>
           <div style={{ display: "grid", gap: "24px" }}>
-            <div style={{ padding: "24px", backgroundColor: "white", borderRadius: "12px" }}>
+            <div style={{ padding: "24px", backgroundColor: "#f8f9fa", borderRadius: "12px" }}>
               <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px", color: "#333" }}>
-                What's included in the free plan?
+                Do credits expire?
               </h3>
               <p style={{ color: "#666", lineHeight: "1.6" }}>
-                Free Discovery lets you paste any WordPress URL to see what's editable. You get platform detection, zone discovery, and visual preview - all without signup.
+                No! Your credits never expire. Buy them once, use them whenever you need.
               </p>
             </div>
-            <div style={{ padding: "24px", backgroundColor: "white", borderRadius: "12px" }}>
+            <div style={{ padding: "24px", backgroundColor: "#f8f9fa", borderRadius: "12px" }}>
               <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px", color: "#333" }}>
-                What is AI image generation?
+                How do I add more credits?
               </h3>
               <p style={{ color: "#666", lineHeight: "1.6" }}>
-                Pro members can generate professional images using . Click any image on your site, generate a new one with AI, and swap it instantly.
+                Just click "Add Credits" in your dashboard and choose $10, $20, $50, or enter a custom amount. It's instant.
               </p>
             </div>
-            <div style={{ padding: "24px", backgroundColor: "white", borderRadius: "12px" }}>
+            <div style={{ padding: "24px", backgroundColor: "#f8f9fa", borderRadius: "12px" }}>
               <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px", color: "#333" }}>
-                Can I cancel anytime?
+                What payment methods do you accept?
               </h3>
               <p style={{ color: "#666", lineHeight: "1.6" }}>
-                Yes! Cancel anytime, no questions asked. Your access continues until the end of your billing period.
+                We accept all major credit cards via Stripe (Visa, Mastercard, American Express).
               </p>
             </div>
-            <div style={{ padding: "24px", backgroundColor: "white", borderRadius: "12px" }}>
+            <div style={{ padding: "24px", backgroundColor: "#f8f9fa", borderRadius: "12px" }}>
               <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px", color: "#333" }}>
-                How many sites can I edit?
+                Can I get a refund?
               </h3>
               <p style={{ color: "#666", lineHeight: "1.6" }}>
-                Pro plan includes unlimited sites. Discover and edit as many WordPress sites as you need.
+                Yes, we offer full refunds within 30 days if you haven't used any credits.
               </p>
             </div>
           </div>

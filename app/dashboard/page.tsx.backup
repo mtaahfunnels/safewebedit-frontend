@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     sites: 0,
@@ -13,13 +12,6 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // Handle token from magic link redirect
-    const urlToken = searchParams?.get('token');
-    if (urlToken) {
-      localStorage.setItem('token', urlToken);
-      router.replace('/dashboard');
-    }
-
     loadStats();
   }, []);
 

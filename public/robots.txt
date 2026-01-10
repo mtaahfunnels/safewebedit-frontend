@@ -1,0 +1,7 @@
+# SafeWebEdit - Robots.txt
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /api/
+
+Sitemap: https://safewebedit.com/sitemap.xml

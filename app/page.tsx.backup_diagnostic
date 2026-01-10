@@ -37,7 +37,6 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [showVisualPreview, setShowVisualPreview] = useState(false);
   const [highlightedZone, setHighlightedZone] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const handleDetect = async () => {
@@ -65,7 +64,7 @@ export default function HomePage() {
       if (data.platform === "wordpress" && data.canEdit) {
         handleDiscover();
       } else if (data.platform === "unknown") {
-        setError(data.details?.message || "Could not detect platform. Make sure the URL is correct and the site is accessible.");
+        setError("Could not detect platform. Make sure the URL is correct and the site is accessible.");
       } else if (data.platform !== "wordpress") {
         setError(`${data.platform} support coming soon! Currently works with WordPress only.`);
       }
@@ -109,15 +108,6 @@ export default function HomePage() {
   };
 
   const handleZoneHover = (zoneId: string | null, zone: Zone | null) => {
-    console.log("[🔍 DIAGNOSTIC] handleZoneHover called:", { zoneId, location: zone?.location, contentPreview: zone?.content?.substring(0,40) });
-    // 🔍 DEBUG: Log hover event
-    setDebugInfo(prev => [...prev.slice(-9), {
-      time: new Date().toLocaleTimeString(),
-      action: zone ? 'hover' : 'clear',
-      zoneId: zoneId,
-      location: zone?.location || null,
-      contentPreview: zone?.content?.substring(0, 30) || null
-    }]);
     setHighlightedZone(zoneId);
 
     if (iframeRef.current && iframeRef.current.contentWindow) {
@@ -171,7 +161,6 @@ export default function HomePage() {
             let currentHighlight = null;
 
             window.addEventListener('message', function(event) {
-              console.log("[🔍 IFRAME] Message received:", event.data.type);
               if (event.data.type === 'HIGHLIGHT_ZONE_FREEMIUM') {
                 clearHighlight();
                 highlightContent(event.data.content, event.data.label, event.data.location);
@@ -181,7 +170,6 @@ export default function HomePage() {
             });
 
             function highlightContent(content, label, location) {
-              console.log("[🔍 IFRAME] highlightContent called:", { location, contentLength: content.length, contentPreview: content.substring(0,40) });
               // ⭐ ONLY SEARCH WITHIN SPECIFIC SELECTOR (article p, main h2, etc.)
               let targetElements;
 
@@ -205,19 +193,16 @@ export default function HomePage() {
                 // ✅ CHECK PARENT ELEMENTS - Exclude footer/header/nav
                 let parent = element;
                 let isInExcludedArea = false;
-                let excludedBy = null;
                 while (parent && parent !== document.body) {
                   const tagName = parent.tagName ? parent.tagName.toLowerCase() : '';
                   if (tagName === 'footer' || tagName === 'header' || tagName === 'nav') {
                     isInExcludedArea = true;
-                    excludedBy = tagName;
                     break;
                   }
                   parent = parent.parentElement;
                 }
                 
                 if (isInExcludedArea) {
-                  console.log("[🚫 IFRAME] Element excluded - inside:", excludedBy, "- Text:", element.textContent.substring(0,30));
                   continue; // Skip elements inside footer/header/nav
                 }
                 
@@ -226,7 +211,6 @@ export default function HomePage() {
 
                 // ✅ STRICT EXACT MATCH ONLY - No fuzzy matching
                 if (elementText === searchText) {
-                  console.log("[✅ IFRAME] MATCH FOUND! Highlighting element", i, "with text:", elementText.substring(0,40));
                   // Make sure element is visible
                   if (element.offsetParent !== null) {
                     highlightElement(element, label);
@@ -378,23 +362,23 @@ export default function HomePage() {
             lineHeight: "1.2",
             color: "#1a1a1a"
           }}>
-            Edit WordPress Sites With AI
+            Edit Any WordPress Site
             <br />
-            No Code. No Limits.
+            Without Touching Code
           </h1>
           <p style={{
             fontSize: "22px",
             marginBottom: "16px",
             color: "#555"
           }}>
-            Discover editable zones instantly. Generate AI images. Swap visuals. Edit text.
+            Paste your WordPress URL below to discover editable zones instantly
           </p>
           <p style={{
             fontSize: "16px",
             marginBottom: "40px",
             color: "#777"
           }}>
-            Paste any WordPress URL → Free instant preview → See results in seconds
+            No signup required. See what you can edit in seconds.
           </p>
 
           {/* URL Input Card */}
@@ -535,31 +519,9 @@ export default function HomePage() {
                     </button>
                   </div>
 
-                  <p style={{ fontSize: "13px", color: "#666", marginBottom: "8px" }}>
+                  <p style={{ fontSize: "13px", color: "#666", marginBottom: "16px" }}>
                     Hover to see • Click "✏️ Click to Edit" to unlock
                   </p>
-                  
-                  <div style={{ 
-                    backgroundColor: "#fff3cd", 
-                    border: "1px solid #ffc107", 
-                    borderRadius: "6px", 
-                    padding: "12px", 
-                    marginBottom: "16px",
-                    fontSize: "12px",
-                    color: "#856404"
-                  }}>
-                    <strong>⚠️ Note:</strong> Some zones cannot be edited including:
-                    <ul style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
-                      <li>Footer copyright text</li>
-                      <li>Header navigation menus</li>
-                      <li>Sidebar widgets</li>
-                      <li>Text in buttons or images</li>
-                      <li>Content from third-party plugins</li>
-                    </ul>
-                    <div style={{ marginTop: "8px", fontSize: "11px", fontStyle: "italic" }}>
-                      Only text in your WordPress posts and pages can be edited.
-                    </div>
-                  </div>
 
                   {discoveryResult.zones.map((zone, index) => (
                     <div
@@ -632,16 +594,16 @@ export default function HomePage() {
           {!showVisualPreview && (
             <div style={{ display: "flex", justifyContent: "center", gap: "64px", color: "#333" }}>
               <div>
-                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>AI Images</div>
-                <div style={{ color: "#666" }}>Generate & swap instantly</div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>1-Click</div>
+                <div style={{ color: "#666" }}>To Edit Any Text</div>
               </div>
               <div>
-                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>Instant Preview</div>
-                <div style={{ color: "#666" }}>See editable zones before signup</div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>Real-Time</div>
+                <div style={{ color: "#666" }}>Live Updates</div>
               </div>
               <div>
-                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>1-Click Edit</div>
-                <div style={{ color: "#666" }}>No code, FTP, or WordPress login</div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>5 min</div>
+                <div style={{ color: "#666" }}>Setup Time</div>
               </div>
             </div>
           )}
@@ -656,10 +618,10 @@ export default function HomePage() {
         textAlign: "center"
       }}>
         <h2 style={{ fontSize: "40px", fontWeight: "700", marginBottom: "24px", color: "#1a1a1a" }}>
-          Ready to Edit WordPress the Modern Way?
+          Ready to Simplify Website Editing?
         </h2>
         <p style={{ fontSize: "18px", marginBottom: "32px", color: "#555" }}>
-          AI images, visual editing, instant previews. All in one platform.
+          Start editing your website the easy way
         </p>
         <Link href="/onboard" style={{
           display: "inline-block",
@@ -679,12 +641,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer style={{ padding: "48px 24px", backgroundColor: "#1a1a1a", color: "white", textAlign: "center" }}>
         <div style={{ fontSize: "20px", fontWeight: "700", marginBottom: "16px" }}>SafeWebEdit</div>
-        <div style={{ fontSize: "14px", opacity: 0.6, marginBottom: "16px" }}>© 2025 SafeWebEdit. All rights reserved.</div>
-        <div style={{ display: "flex", gap: "24px", justifyContent: "center", fontSize: "14px" }}>
-          <a href="/privacy" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "none" }}>Privacy Policy</a>
-          <a href="/terms" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "none" }}>Terms of Service</a>
-          <a href="/contact" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "none" }}>Contact</a>
-        </div>
+        <div style={{ fontSize: "14px", opacity: 0.6 }}>© 2025 SafeWebEdit. All rights reserved.</div>
       </footer>
     </div>
   );
