@@ -197,36 +197,10 @@ export default function VisualEditorPage() {
         setEditingImage(null);
 
         const token = localStorage.getItem('token');
-        if (!token) {
-          console.error('[Visual Editor] ❌ No auth token found');
-          return;
-        }
-
-        // DIAGNOSTIC: Log all state before making request
-        console.log('[Visual Editor] 🔍 DIAGNOSTIC CHECKPOINT:');
-        console.log('  selectedSite:', selectedSite);
-        console.log('  currentPageId:', currentPageId);
-        console.log('  currentPageTitle:', currentPageTitle);
-        console.log('  currentUrl:', currentUrl);
-        console.log('  cssSelector:', cssSelector);
-        console.log('  textContent:', textContent?.substring(0, 50));
-        console.log('  elementText:', elementText?.substring(0, 50));
-
-        if (!selectedSite) {
-          console.error('[Visual Editor] ❌ No site selected!');
-          setError('No site selected. Please select a site first.');
-          return;
-        }
-
-        if (!cssSelector) {
-          console.error('[Visual Editor] ❌ No CSS selector!');
-          setError('Invalid element selection');
-          return;
-        }
+        if (!token) return;
 
         try {
           setMessage('Creating editable zone...');
-          console.log('[Visual Editor] 🚀 Sending request to create-slot...');
 
           const response = await fetch('https://safewebedit.com/api/auto-discovery/create-slot', {
             method: 'POST',
@@ -235,7 +209,7 @@ export default function VisualEditorPage() {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              siteId: selectedSite,
+              site_id: selectedSite,
               cssSelector: cssSelector,
               content: textContent,
               elementText: elementText,
