@@ -648,6 +648,117 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* What Can You Edit Section */}
+      <section style={{
+        padding: '80px 20px',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: '32px',
+            fontWeight: 700,
+            marginBottom: '20px',
+            color: '#2c3e50',
+            textAlign: 'center'
+          }}>
+            What Can You Edit?
+          </h2>
+          <p style={{
+            fontSize: '18px',
+            color: '#666',
+            marginBottom: '50px',
+            textAlign: 'center',
+            maxWidth: '700px',
+            margin: '0 auto 50px'
+          }}>
+            SafeWebEdit edits content stored in WordPress pages and posts via the REST API. 
+            Here's what that means:
+          </p>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+            gap: '30px',
+            marginTop: '40px'
+          }}>
+            <div style={{
+              backgroundColor: '#d4edda',
+              border: '2px solid #28a745',
+              borderRadius: '8px',
+              padding: '30px'
+            }}>
+              <h3 style={{
+                fontSize: '24px',
+                fontWeight: 600,
+                color: '#155724',
+                marginBottom: '20px'
+              }}>
+                ✅ You CAN Edit
+              </h3>
+              <ul style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                lineHeight: '2'
+              }}>
+                <li style={{ color: '#155724', fontSize: '16px' }}>• Page and post body text</li>
+                <li style={{ color: '#155724', fontSize: '16px' }}>• Gutenberg block content</li>
+                <li style={{ color: '#155724', fontSize: '16px' }}>• Custom HTML in pages</li>
+                <li style={{ color: '#155724', fontSize: '16px' }}>• Images within page content</li>
+                <li style={{ color: '#155724', fontSize: '16px' }}>• Main content area text</li>
+              </ul>
+            </div>
+
+            <div style={{
+              backgroundColor: '#f8d7da',
+              border: '2px solid #dc3545',
+              borderRadius: '8px',
+              padding: '30px'
+            }}>
+              <h3 style={{
+                fontSize: '24px',
+                fontWeight: 600,
+                color: '#721c24',
+                marginBottom: '20px'
+              }}>
+                ❌ You CANNOT Edit
+              </h3>
+              <ul style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                lineHeight: '2'
+              }}>
+                <li style={{ color: '#721c24', fontSize: '16px' }}>• Site title and logo</li>
+                <li style={{ color: '#721c24', fontSize: '16px' }}>• Navigation menus</li>
+                <li style={{ color: '#721c24', fontSize: '16px' }}>• Theme headers/footers</li>
+                <li style={{ color: '#721c24', fontSize: '16px' }}>• WooCommerce product loops</li>
+                <li style={{ color: '#721c24', fontSize: '16px' }}>• Widgets and sidebars</li>
+                <li style={{ color: '#721c24', fontSize: '16px' }}>• Plugin-generated content</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style={{
+            marginTop: '40px',
+            padding: '20px',
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '8px',
+            textAlign: 'center'
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: '16px',
+              color: '#856404'
+            }}>
+              <strong>💡 Pro Tip:</strong> Focus on editing pages like "About", "Services", or blog posts. 
+              Avoid system pages like "Shop" or "Cart" which are mostly plugin-generated.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section style={{
         padding: "80px 24px",

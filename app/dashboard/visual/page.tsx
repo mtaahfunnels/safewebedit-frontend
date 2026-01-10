@@ -44,6 +44,7 @@ export default function VisualEditorPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [errorHelp, setErrorHelp] = useState<any>(null);;
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
   const [editContent, setEditContent] = useState('');
   const [saving, setSaving] = useState(false);
@@ -249,8 +250,12 @@ export default function VisualEditorPage() {
 
           } else {
             const errorData = await response.json();
-            setError(errorData.error || 'Failed to create editable zone');
-            setTimeout(() => setError(''), 5000);
+            setError(errorData.error || errorData.message || 'Failed to create editable zone');
+            setErrorHelp(errorData.help || null);
+            setTimeout(() => {
+              setError('');
+              setErrorHelp(null);
+            }, 15000); // Show for 15 seconds for detailed error
           }
 
         } catch (err: any) {
@@ -704,7 +709,54 @@ const handleGenerateImage = async () => {
           color: '#721c24',
           borderBottom: '1px solid #f5c6cb'
         }}>
-          {error}
+          <div style={{ fontWeight: 600, marginBottom: errorHelp ? '10px' : '0' }}>
+            ⚠️ {error}
+          </div>
+          
+          {errorHelp && (
+            <div style={{ 
+              marginTop: '12px', 
+              fontSize: '13px',
+              backgroundColor: '#fff3cd',
+              border: '1px solid #ffeaa7',
+              borderRadius: '4px',
+              padding: '12px'
+            }}>
+              {errorHelp.canEdit && (
+                <div style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: '#155724' }}>✅ What you CAN edit:</strong>
+                  <ul style={{ margin: '5px 0 0 20px', paddingLeft: 0 }}>
+                    {errorHelp.canEdit.map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {errorHelp.cannotEdit && (
+                <div style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: '#721c24' }}>❌ What you CANNOT edit:</strong>
+                  <ul style={{ margin: '5px 0 0 20px', paddingLeft: 0 }}>
+                    {errorHelp.cannotEdit.map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {errorHelp.suggestion && (
+                <div style={{ 
+                  marginTop: '10px', 
+                  padding: '8px', 
+                  backgroundColor: '#d4edda',
+                  borderLeft: '3px solid #28a745',
+                  color: '#155724'
+                }}>
+                  <strong>💡 Suggestion:</strong> {errorHelp.suggestion}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
