@@ -57,10 +57,10 @@ export default function FeaturesPage() {
       }}>
         <div style={{ maxWidth: "800px", margin: "0 auto" }}>
           <h1 style={{ fontSize: "48px", fontWeight: "700", marginBottom: "16px" }}>
-            Powerful Features
+            AI-Powered Visual Editing
           </h1>
           <p style={{ fontSize: "20px", opacity: 0.95 }}>
-            Everything you need to edit your website effortlessly
+            Generate images with AI. Edit text visually. Swap content instantly.
           </p>
         </div>
       </section>
@@ -73,35 +73,50 @@ export default function FeaturesPage() {
             gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
             gap: "32px"
           }}>
-            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center" }}>
-              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🎨</div>
-              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Visual Editing</h3>
-              <p style={{ color: "#666" }}>Click any text to edit. See changes in real-time on your actual website.</p>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🤖</div>
+              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>AI Image Generation</h3>
+              <p style={{ color: "#666" }}>Generate professional images instantly - even with text embedded. Click any image on your site to replace it with AI-generated visuals. Perfect for banners, promotions, and marketing materials.</p>
             </div>
-            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center" }}>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔍</div>
+              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Free Discovery</h3>
+              <p style={{ color: "#666" }}>Paste any WordPress URL to instantly see what's editable. No signup required. Preview zones before you commit.</p>
+            </div>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔄</div>
+              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Image Swapping</h3>
+              <p style={{ color: "#666" }}>One-click image replacement. Upload or generate with AI, then swap automatically. Changes go live instantly.</p>
+            </div>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🎨</div>
+              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Visual Text Editing</h3>
+              <p style={{ color: "#666" }}>Click any text to edit. See changes in real-time on your actual website. No WordPress dashboard needed.</p>
+            </div>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>⚡</div>
               <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Instant Updates</h3>
-              <p style={{ color: "#666" }}>Changes go live immediately. No delays, no complicated publishing workflows.</p>
+              <p style={{ color: "#666" }}>Changes go live immediately. No delays, no complicated publishing workflows. What you see is what you get.</p>
             </div>
-            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center" }}>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔒</div>
-              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Secure</h3>
-              <p style={{ color: "#666" }}>Bank-level encryption for your credentials. Your data is safe with us.</p>
+              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Secure & Reliable</h3>
+              <p style={{ color: "#666" }}>Bank-level encryption for credentials. Comprehensive diagnostic logging. Your data is safe with us.</p>
             </div>
-            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center" }}>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>🌐</div>
-              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Multi-Platform</h3>
-              <p style={{ color: "#666" }}>WordPress support now. Wix, Squarespace, and Shopify coming soon.</p>
+              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Platform Detection</h3>
+              <p style={{ color: "#666" }}>Auto-detects WordPress, Shopify, and Ghost. More platforms coming soon. Smart zone discovery.</p>
             </div>
-            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center" }}>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>📱</div>
               <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Mobile Friendly</h3>
-              <p style={{ color: "#666" }}>Edit from any device. Our interface works perfectly on desktop, tablet, and mobile.</p>
+              <p style={{ color: "#666" }}>Edit from any device. Our interface works perfectly on desktop, tablet, and mobile. Edit on the go.</p>
             </div>
-            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center" }}>
-              <div style={{ fontSize: "48px", marginBottom: "16px" }}>💬</div>
-              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Priority Support</h3>
-              <p style={{ color: "#666" }}>Get help when you need it. Our support team responds within 24 hours.</p>
+            <div style={{ padding: "32px", backgroundColor: "white", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🎯</div>
+              <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}>Smart Zone Validation</h3>
+              <p style={{ color: "#666" }}>Filters out non-editable zones automatically. Only shows content you can actually change. No false positives.</p>
             </div>
           </div>
         </div>
@@ -118,7 +133,7 @@ export default function FeaturesPage() {
           Ready to Get Started?
         </h2>
         <p style={{ fontSize: "18px", marginBottom: "32px", opacity: 0.95 }}>
-          Start your 14-day free trial today
+          Try free discovery or start your 14-day trial today
         </p>
         <Link href="/onboard" style={{
           display: "inline-block",
@@ -130,7 +145,7 @@ export default function FeaturesPage() {
           fontSize: "18px",
           fontWeight: "600"
         }}>
-          Start Free Trial
+          Start Free Discovery
         </Link>
       </section>
 

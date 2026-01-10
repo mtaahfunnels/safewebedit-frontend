@@ -65,7 +65,7 @@ export default function HomePage() {
       if (data.platform === "wordpress" && data.canEdit) {
         handleDiscover();
       } else if (data.platform === "unknown") {
-        setError("Could not detect platform. Make sure the URL is correct and the site is accessible.");
+        setError(data.details?.message || "Could not detect platform. Make sure the URL is correct and the site is accessible.");
       } else if (data.platform !== "wordpress") {
         setError(`${data.platform} support coming soon! Currently works with WordPress only.`);
       }
@@ -378,23 +378,23 @@ export default function HomePage() {
             lineHeight: "1.2",
             color: "#1a1a1a"
           }}>
-            Edit Any WordPress Site
+            Edit WordPress Sites With AI
             <br />
-            Without Touching Code
+            No Code. No Limits.
           </h1>
           <p style={{
             fontSize: "22px",
             marginBottom: "16px",
             color: "#555"
           }}>
-            Paste your WordPress URL below to discover editable zones instantly
+            Discover editable zones instantly. Generate AI images. Swap visuals. Edit text.
           </p>
           <p style={{
             fontSize: "16px",
             marginBottom: "40px",
             color: "#777"
           }}>
-            No signup required. See what you can edit in seconds.
+            Paste any WordPress URL → Free instant preview → See results in seconds
           </p>
 
           {/* URL Input Card */}
@@ -632,16 +632,16 @@ export default function HomePage() {
           {!showVisualPreview && (
             <div style={{ display: "flex", justifyContent: "center", gap: "64px", color: "#333" }}>
               <div>
-                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>1-Click</div>
-                <div style={{ color: "#666" }}>To Edit Any Text</div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>AI Images</div>
+                <div style={{ color: "#666" }}>Generate & swap instantly</div>
               </div>
               <div>
-                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>Real-Time</div>
-                <div style={{ color: "#666" }}>Live Updates</div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>Instant Preview</div>
+                <div style={{ color: "#666" }}>See editable zones before signup</div>
               </div>
               <div>
-                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>5 min</div>
-                <div style={{ color: "#666" }}>Setup Time</div>
+                <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a1a1a" }}>1-Click Edit</div>
+                <div style={{ color: "#666" }}>No code, FTP, or WordPress login</div>
               </div>
             </div>
           )}
@@ -656,10 +656,10 @@ export default function HomePage() {
         textAlign: "center"
       }}>
         <h2 style={{ fontSize: "40px", fontWeight: "700", marginBottom: "24px", color: "#1a1a1a" }}>
-          Ready to Simplify Website Editing?
+          Ready to Edit WordPress the Modern Way?
         </h2>
         <p style={{ fontSize: "18px", marginBottom: "32px", color: "#555" }}>
-          Start editing your website the easy way
+          AI images, visual editing, instant previews. All in one platform.
         </p>
         <Link href="/onboard" style={{
           display: "inline-block",

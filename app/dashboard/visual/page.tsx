@@ -66,6 +66,7 @@ export default function VisualEditorPage() {
   const [currentPageTitle, setCurrentPageTitle] = useState('Home');
   const [currentPath, setCurrentPath] = useState('/');
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadSites();
@@ -208,13 +209,14 @@ export default function VisualEditorPage() {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              siteId: selectedSite,
-              cssSelector: cssSelector,
-              content: textContent,
-              pageId: 0,
-              pageTitle: 'Auto-discovered',
-              elementText: elementText
-            })
+          site_id: selectedSite,
+          image_base64: generatedImage,
+          filename: `ai-gen-${Date.now()}.png`,
+          replace_image_url: editingImage?.src,
+          page_id: currentPageId,
+          target_width: originalMetadata?.width,
+          target_height: originalMetadata?.height
+        })
           });
 
           if (response.ok) {
@@ -342,7 +344,54 @@ export default function VisualEditorPage() {
     }
   };
 
-  const handleGenerateImage = async () => {
+  
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image file too large. Maximum size is 10MB');
+      return;
+    }
+
+    try {
+      // Read file as data URL
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string;
+
+        // Create image to extract metadata
+        const img = new Image();
+        img.onload = () => {
+          const metadata: ImageMetadata = {
+            width: img.width,
+            height: img.height,
+            format: file.type.split('/')[1].toUpperCase(),
+            size: file.size,
+            aspectRatio: (img.width / img.height).toFixed(2)
+          };
+
+          setGeneratedImage(dataUrl);
+          setNewMetadata(metadata);
+          setMessage('Image uploaded successfully. Click "Swap Image" to apply.');
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError('Failed to upload image');
+    }
+  };
+
+const handleGenerateImage = async () => {
     if (!editingImage || !originalMetadata || !imagePrompt.trim()) {
       setError('Please enter a prompt to generate the image');
       setTimeout(() => setError(''), 3000);
@@ -434,7 +483,7 @@ export default function VisualEditorPage() {
           site_id: selectedSite,
           image_base64: generatedImage,
           filename: `ai-gen-${Date.now()}.png`,
-          replace_image_url: editingImage.src,
+          replace_image_url: editingImage?.src,
           page_id: currentPageId
         })
       });
@@ -962,6 +1011,54 @@ export default function VisualEditorPage() {
                 >
                   {generatingImage ? '🎨 Generating...' : '✨ Generate Image'}
                 </button>
+
+                {/* Upload Option */}
+                <div style={{
+                  marginTop: '16px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid #e5e7eb'
+                }}>
+                  <div style={{
+                    fontSize: '13px',
+                    color: '#6b7280',
+                    marginBottom: '8px',
+                    textAlign: 'center'
+                  }}>
+                    — or —
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={analyzingImage || generatingImage}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: analyzingImage || generatingImage ? '#d1d5db' : 'white',
+                      color: analyzingImage || generatingImage ? '#9ca3af' : '#3b82f6',
+                      border: '2px solid #3b82f6',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: analyzingImage || generatingImage ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    📤 Upload Your Own Image
+                  </button>
+                  <div style={{
+                    fontSize: '11px',
+                    color: '#9ca3af',
+                    marginTop: '6px',
+                    textAlign: 'center'
+                  }}>
+                    Max 10MB • JPG, PNG, WEBP
+                  </div>
+                </div>
               </div>
 
               {/* Generated Image */}
@@ -1015,7 +1112,7 @@ export default function VisualEditorPage() {
                       <div style={{ fontSize: '11px', color: '#3730a3' }}>
                         {newMetadata.width === originalMetadata.width && newMetadata.height === originalMetadata.height
                           ? '✓ Dimensions match perfectly'
-                          : '⚠️ Dimensions differ'}
+                          : '🔧 Will auto-resize to match original'}
                       </div>
                     </div>
                   )}
