@@ -25,6 +25,7 @@ interface Zone {
   id: string;
   marker_name: string;
   slot_label: string;
+  css_selector: string;
   current_content: string;
   pending_count: number;
   next_scheduled?: string;
@@ -78,60 +79,49 @@ export default function SchedulePage() {
     }
   }, [selectedSite, sites]);
 
-  // CLONE VISUAL EDITOR'S MESSAGE HANDLING PATTERN
+  // CLONE VISUAL EDITOR'S MESSAGE HANDLING PATTERN - MATCH BY CSS SELECTOR
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      // DEBUG: Log ALL messages received
-      console.log('[Schedule] 📨 Message received:', {
-        type: event.data?.type,
-        marker: event.data?.marker,
-        hasData: !!event.data?.data,
-        origin: event.origin
-      });
-
       // Handle zone clicks (TEXT_CLICKED in schedule mode)
       if (event.data.type === 'TEXT_CLICKED') {
-        console.log('[Schedule] ✅ TEXT_CLICKED detected');
-        const clickedMarker = event.data.marker;
+        console.log('[Schedule] Text clicked:', event.data.data);
+        const { cssSelector } = event.data.data;
 
-        if (!clickedMarker) {
-          console.warn('[Schedule] ❌ No marker in message');
+        if (!cssSelector) {
+          console.warn('[Schedule] No cssSelector in message');
           return;
         }
 
-        console.log('[Schedule] 🔍 Searching for zone:', clickedMarker);
-        console.log('[Schedule] 📋 Available zones:', zones.map(z => ({ marker: z.marker_name, label: z.slot_label })));
+        console.log('[Schedule] Looking for zone with selector:', cssSelector);
+        console.log('[Schedule] Available zones:', zones.map(z => ({
+          selector: z.css_selector,
+          label: z.slot_label
+        })));
 
-        // Find zone by marker
-        const zone = zones.find(z => z.marker_name === clickedMarker);
+        // Find zone by CSS selector (same as visual editor pattern)
+        const zone = zones.find(z => z.css_selector === cssSelector);
 
         if (zone) {
-          console.log('[Schedule] ✅ Found zone:', zone.slot_label, '(ID:', zone.id + ')');
-          console.log('[Schedule] 🔄 Calling loadZoneQueue...');
+          console.log('[Schedule] ✅ Found zone:', zone.slot_label);
+          setSelectedZone(null); // Clear first to ensure re-render
           await loadZoneQueue(zone.id);
-          console.log('[Schedule] ✅ loadZoneQueue completed');
         } else {
-          console.warn('[Schedule] ❌ No zone found for marker:', clickedMarker);
-          console.warn('[Schedule] Available markers:', zones.map(z => z.marker_name));
-          setError(`Zone not found: ${clickedMarker}`);
-          setTimeout(() => setError(''), 3000);
+          console.warn('[Schedule] No zone found for selector:', cssSelector);
+          setError('Zone not found. Please add this zone in Visual Editor first.');
+          setTimeout(() => setError(''), 4000);
         }
       }
 
       // Handle image clicks
       if (event.data.type === 'IMAGE_CLICKED') {
-        console.log('[Schedule] 🖼️ IMAGE_CLICKED detected');
+        console.log('[Schedule] Image clicked:', event.data);
         setError('Image scheduling coming soon!');
         setTimeout(() => setError(''), 3000);
       }
     };
 
-    console.log('[Schedule] 🎧 Message listener attached. Zones loaded:', zones.length);
     window.addEventListener('message', handleMessage);
-    return () => {
-      console.log('[Schedule] 🔇 Message listener removed');
-      window.removeEventListener('message', handleMessage);
-    };
+    return () => window.removeEventListener('message', handleMessage);
   }, [zones, selectedSite]);
 
   const loadSites = async () => {
