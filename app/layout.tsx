@@ -4,6 +4,9 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+// Force dynamic rendering for all pages to avoid static generation issues
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "SafeWebEdit - Edit Your Website Without the Complex Dashboard",
   description: "Click what you see, edit in place, publish instantly. WordPress support now, more platforms coming soon.",
