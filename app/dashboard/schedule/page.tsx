@@ -566,7 +566,7 @@ export default function SchedulePage() {
           <div style={{ flex: 1, position: 'relative' }}>
             <iframe
               ref={iframeRef}
-              src={`https://safewebedit.com/api/visual-proxy?url=${encodeURIComponent(currentUrl)}`}
+              src={`https://safewebedit.com/api/visual-proxy?url=${encodeURIComponent(currentUrl)}&mode=schedule`}
               onLoad={handleIframeLoad}
               style={{
                 width: '100%',
