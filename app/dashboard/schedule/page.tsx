@@ -65,7 +65,7 @@ export default function SchedulePage() {
         loadZones();
       }
     }
-  }, [selectedSite, sites]);
+  }, [selectedSite]);
 
   // CLONE VISUAL EDITOR'S MESSAGE HANDLING PATTERN
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function SchedulePage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [zones]);
+  }, [zones, selectedSite]);
 
   const loadSites = async () => {
     const token = localStorage.getItem('token');
