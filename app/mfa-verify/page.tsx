@@ -52,10 +52,9 @@ export default function MFAVerifyPage() {
       // MFA verification successful
       console.log('[MFA-VERIFY] Success:', data.method);
 
-      // Store token and user info in localStorage
-      if (token) {
-        localStorage.setItem('token', token);
-      }
+      // Use NEW token from response (replaces pre-MFA token)
+      const newToken = data.token || token;
+      localStorage.setItem('token', newToken);
       
       // Store user info from response
       if (data.user) {
