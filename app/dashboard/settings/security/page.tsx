@@ -20,7 +20,7 @@ export default function SecuritySettingsPage() {
 
   const fetchMFAStatus = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/mfa/status`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -45,7 +45,7 @@ export default function SecuritySettingsPage() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/mfa/setup`, {
         method: 'POST',
         headers: {
@@ -87,7 +87,7 @@ export default function SecuritySettingsPage() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/mfa/enable`, {
         method: 'POST',
         headers: {
@@ -127,7 +127,7 @@ export default function SecuritySettingsPage() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/mfa/disable`, {
         method: 'POST',
         headers: {

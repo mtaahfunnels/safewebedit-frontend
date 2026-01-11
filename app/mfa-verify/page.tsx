@@ -54,7 +54,7 @@ export default function MFAVerifyPage() {
 
       // Store token in localStorage and redirect to dashboard
       if (token) {
-        localStorage.setItem('auth_token', token);
+        localStorage.setItem('token', token);
       }
 
       router.push('/dashboard');
