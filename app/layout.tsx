@@ -7,6 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "SafeWebEdit - Edit Your Website Without the Complex Dashboard",
   description: "Click what you see, edit in place, publish instantly. WordPress support now, more platforms coming soon.",
+  manifest: "/site.webmanifest",
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
