@@ -70,11 +70,17 @@ export default function SchedulePage() {
   // Listen for zone clicks from iframe
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'ZONE_CLICKED') {
+      // Listen for both TEXT_CLICKED and IMAGE_CLICKED from visual-proxy
+      if (event.data?.type === 'TEXT_CLICKED' || event.data?.type === 'IMAGE_CLICKED') {
         const clickedMarker = event.data.marker;
+        console.log('[Schedule] Zone clicked:', clickedMarker);
+
         const zone = zones.find(z => z.marker_name === clickedMarker);
         if (zone) {
+          console.log('[Schedule] Found zone:', zone.slot_label);
           handleZoneClick(zone.id);
+        } else {
+          console.log('[Schedule] Zone not found in list. Available zones:', zones.map(z => z.marker_name));
         }
       }
     };
