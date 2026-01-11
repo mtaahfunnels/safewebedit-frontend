@@ -44,6 +44,17 @@ export default function SchedulePage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  // DEBUG: Log when selectedZone changes
+  useEffect(() => {
+    console.log('[Schedule] 🎯 selectedZone changed:', selectedZone ? {
+      id: selectedZone.id,
+      label: selectedZone.slot_label,
+      marker: selectedZone.marker_name,
+      pending: selectedZone.pending_count
+    } : null);
+    console.log('[Schedule] 🎨 Sidebar should be:', selectedZone ? 'VISIBLE' : 'HIDDEN');
+  }, [selectedZone]);
+
   // Form state
   const [showForm, setShowForm] = useState(false);
   const [contentType, setContentType] = useState<'text' | 'image'>('text');
@@ -65,29 +76,43 @@ export default function SchedulePage() {
         loadZones();
       }
     }
-  }, [selectedSite]);
+  }, [selectedSite, sites]);
 
   // CLONE VISUAL EDITOR'S MESSAGE HANDLING PATTERN
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
+      // DEBUG: Log ALL messages received
+      console.log('[Schedule] 📨 Message received:', {
+        type: event.data?.type,
+        marker: event.data?.marker,
+        hasData: !!event.data?.data,
+        origin: event.origin
+      });
+
       // Handle zone clicks (TEXT_CLICKED in schedule mode)
       if (event.data.type === 'TEXT_CLICKED') {
-        console.log('[Schedule] Zone clicked:', event.data);
+        console.log('[Schedule] ✅ TEXT_CLICKED detected');
         const clickedMarker = event.data.marker;
 
         if (!clickedMarker) {
-          console.warn('[Schedule] No marker in clicked message');
+          console.warn('[Schedule] ❌ No marker in message');
           return;
         }
+
+        console.log('[Schedule] 🔍 Searching for zone:', clickedMarker);
+        console.log('[Schedule] 📋 Available zones:', zones.map(z => ({ marker: z.marker_name, label: z.slot_label })));
 
         // Find zone by marker
         const zone = zones.find(z => z.marker_name === clickedMarker);
 
         if (zone) {
-          console.log('[Schedule] Found zone:', zone.slot_label);
+          console.log('[Schedule] ✅ Found zone:', zone.slot_label, '(ID:', zone.id + ')');
+          console.log('[Schedule] 🔄 Calling loadZoneQueue...');
           await loadZoneQueue(zone.id);
+          console.log('[Schedule] ✅ loadZoneQueue completed');
         } else {
-          console.warn('[Schedule] No zone found for marker:', clickedMarker);
+          console.warn('[Schedule] ❌ No zone found for marker:', clickedMarker);
+          console.warn('[Schedule] Available markers:', zones.map(z => z.marker_name));
           setError(`Zone not found: ${clickedMarker}`);
           setTimeout(() => setError(''), 3000);
         }
@@ -95,14 +120,18 @@ export default function SchedulePage() {
 
       // Handle image clicks
       if (event.data.type === 'IMAGE_CLICKED') {
-        console.log('[Schedule] Image clicked:', event.data);
+        console.log('[Schedule] 🖼️ IMAGE_CLICKED detected');
         setError('Image scheduling coming soon!');
         setTimeout(() => setError(''), 3000);
       }
     };
 
+    console.log('[Schedule] 🎧 Message listener attached. Zones loaded:', zones.length);
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    return () => {
+      console.log('[Schedule] 🔇 Message listener removed');
+      window.removeEventListener('message', handleMessage);
+    };
   }, [zones, selectedSite]);
 
   const loadSites = async () => {
@@ -155,21 +184,33 @@ export default function SchedulePage() {
   };
 
   const loadZoneQueue = async (zoneId: string) => {
+    console.log('[Schedule] 📡 loadZoneQueue called with ID:', zoneId);
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch(
-        `https://safewebedit.com/api/schedule/queue/${zoneId}`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
+      const url = `https://safewebedit.com/api/schedule/queue/${zoneId}`;
+      console.log('[Schedule] 🌐 Fetching:', url);
+
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      console.log('[Schedule] 📥 Response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[Schedule] 📦 Response data:', data);
+        console.log('[Schedule] ✅ Setting selectedZone to:', data.zone);
         setSelectedZone(data.zone);
         setShowForm(false);
+        console.log('[Schedule] ✅ State updated - sidebar should appear!');
+      } else {
+        const errorText = await response.text();
+        console.error('[Schedule] ❌ API error:', response.status, errorText);
+        setError(`API error: ${response.status}`);
       }
     } catch (err: any) {
-      console.error('Failed to load queue:', err);
+      console.error('[Schedule] ❌ Failed to load queue:', err);
       setError(err.message);
     }
   };
