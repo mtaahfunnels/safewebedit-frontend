@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -9,7 +10,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     sites: 0,
-    slots: 0
+    zones: 0,
+    scheduled: 0
   });
 
   useEffect(() => {
@@ -31,13 +33,25 @@ export default function DashboardPage() {
     }
 
     try {
+      // Load WordPress sites count
       const sitesResponse = await fetch('https://safewebedit.com/api/wordpress/sites', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (sitesResponse.ok) {
         const sitesData = await sitesResponse.json();
-        setStats(prev => ({ ...prev, sites: sitesData.total || 0 }));
+        const sitesArray = Array.isArray(sitesData) ? sitesData : (sitesData.sites || []);
+        setStats(prev => ({ ...prev, sites: sitesArray.length }));
+      }
+
+      // Load content zones count (from first site if available)
+      const slotsResponse = await fetch('https://safewebedit.com/api/slots', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (slotsResponse.ok) {
+        const slotsData = await slotsResponse.json();
+        setStats(prev => ({ ...prev, zones: slotsData.total || 0 }));
       }
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -53,7 +67,7 @@ export default function DashboardPage() {
           <div style={{
             width: '48px',
             height: '48px',
-            border: '4px solid #007bff',
+            border: '4px solid #3498db',
             borderTop: '4px solid transparent',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
@@ -67,15 +81,17 @@ export default function DashboardPage() {
 
   return (
     <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Header */}
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#333', marginBottom: '8px' }}>
           Welcome to SafeWebEdit
         </h1>
         <p style={{ fontSize: '16px', color: '#666', margin: 0 }}>
-          Manage your website content with Google Sheets
+          Edit your WordPress sites visually, generate AI images, and schedule content automatically
         </p>
       </div>
 
+      {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '32px' }}>
         <div style={{
           backgroundColor: 'white',
@@ -100,38 +116,160 @@ export default function DashboardPage() {
           border: '1px solid #e0e0e0'
         }}>
           <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px', fontWeight: '500' }}>
-            Content Slots
+            Content Zones
           </div>
           <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#27ae60' }}>
-            {stats.slots}
+            {stats.zones}
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          padding: '24px',
+          border: '1px solid #e0e0e0'
+        }}>
+          <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px', fontWeight: '500' }}>
+            Scheduled Content
+          </div>
+          <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#e67e22' }}>
+            {stats.scheduled}
           </div>
         </div>
       </div>
 
+      {/* Quick Start Guide */}
       <div style={{
         backgroundColor: 'white',
         borderRadius: '8px',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         padding: '24px',
-        border: '1px solid #e0e0e0'
+        border: '1px solid #e0e0e0',
+        marginBottom: '24px'
       }}>
         <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#333', marginBottom: '16px' }}>
-          🚀 Quick Start
+          🚀 Quick Start Guide
         </h3>
         <ol style={{ margin: 0, paddingLeft: '20px', color: '#555', lineHeight: '1.8' }}>
-          <li style={{ marginBottom: '8px' }}>
-            <strong>Connect WordPress:</strong> Go to WordPress Sites and add your site
+          <li style={{ marginBottom: '12px' }}>
+            <strong>Add WordPress Site:</strong> Go to{' '}
+            <Link href="/dashboard/wordpress" style={{ color: '#3498db', textDecoration: 'underline' }}>
+              🌐 Websites
+            </Link>
+            {' '}and connect your WordPress site with REST API credentials
           </li>
-          <li style={{ marginBottom: '8px' }}>
-            <strong>Create Slots:</strong> Map content sections to Google Sheets
+          <li style={{ marginBottom: '12px' }}>
+            <strong>Create Content Zones:</strong> Use{' '}
+            <Link href="/dashboard/visual" style={{ color: '#3498db', textDecoration: 'underline' }}>
+              🎨 Visual Editor
+            </Link>
+            {' '}to click on any text or image and create editable zones
           </li>
-          <li style={{ marginBottom: '8px' }}>
-            <strong>Configure Sheets:</strong> Connect your Google Sheets in Settings
+          <li style={{ marginBottom: '12px' }}>
+            <strong>Edit Content Live:</strong> Click zones to edit text or swap images with AI-generated alternatives
           </li>
           <li>
-            <strong>Auto-Sync:</strong> Enable sync to keep content updated automatically
+            <strong>Schedule Updates:</strong> Use{' '}
+            <Link href="/dashboard/schedule" style={{ color: '#3498db', textDecoration: 'underline' }}>
+              📅 Content Schedule
+            </Link>
+            {' '}to automate content changes at specific dates and times
           </li>
         </ol>
+      </div>
+
+      {/* Feature Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+        {/* Visual Editor */}
+        <Link href="/dashboard/visual" style={{ textDecoration: 'none' }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            padding: '24px',
+            border: '1px solid #e0e0e0',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            height: '100%'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+          }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>🎨</div>
+            <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#333', marginBottom: '8px' }}>
+              Visual Editor
+            </h4>
+            <p style={{ fontSize: '14px', color: '#666', margin: 0, lineHeight: '1.6' }}>
+              Point-and-click editing for your WordPress site. Edit text, swap images with AI, and see changes live.
+            </p>
+          </div>
+        </Link>
+
+        {/* Content Schedule */}
+        <Link href="/dashboard/schedule" style={{ textDecoration: 'none' }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            padding: '24px',
+            border: '1px solid #e0e0e0',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            height: '100%'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+          }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>📅</div>
+            <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#333', marginBottom: '8px' }}>
+              Content Schedule
+            </h4>
+            <p style={{ fontSize: '14px', color: '#666', margin: 0, lineHeight: '1.6' }}>
+              Schedule text and image updates to deploy automatically. Queue content and let it go live on schedule.
+            </p>
+          </div>
+        </Link>
+
+        {/* AI Images */}
+        <Link href="/dashboard/credits" style={{ textDecoration: 'none' }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            padding: '24px',
+            border: '1px solid #e0e0e0',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            height: '100%'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+          }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>✨</div>
+            <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#333', marginBottom: '8px' }}>
+              AI Image Generation
+            </h4>
+            <p style={{ fontSize: '14px', color: '#666', margin: 0, lineHeight: '1.6' }}>
+              Generate stunning images with AI (FLUX Pro). Swap any image on your site with custom AI creations.
+            </p>
+          </div>
+        </Link>
       </div>
 
       <style jsx>{`
