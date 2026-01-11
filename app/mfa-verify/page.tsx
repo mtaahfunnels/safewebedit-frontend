@@ -52,9 +52,18 @@ export default function MFAVerifyPage() {
       // MFA verification successful
       console.log('[MFA-VERIFY] Success:', data.method);
 
-      // Store token in localStorage and redirect to dashboard
+      // Store token and user info in localStorage
       if (token) {
         localStorage.setItem('token', token);
+      }
+      
+      // Store user info from response
+      if (data.user) {
+        localStorage.setItem('user_id', data.user.id);
+        localStorage.setItem('user_email', data.user.email);
+        if (data.user.name) {
+          localStorage.setItem('user_name', data.user.name);
+        }
       }
 
       router.push('/dashboard');
