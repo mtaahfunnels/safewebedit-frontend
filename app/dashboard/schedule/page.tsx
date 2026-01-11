@@ -43,6 +43,8 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [showZoneList, setShowZoneList] = useState(false);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -62,32 +64,81 @@ export default function SchedulePage() {
       const site = sites.find(s => s.id === selectedSite);
       if (site) {
         setCurrentUrl(site.url);
+        setIframeLoaded(false);
         loadZones();
       }
     }
   }, [selectedSite, sites]);
 
-  // Listen for zone clicks from iframe
+  // IMPROVED: Listen for zone clicks from iframe with better debugging
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Listen for both TEXT_CLICKED and IMAGE_CLICKED from visual-proxy
+      // Log ALL messages to see what's coming through
+      console.log('[Schedule] 🔔 Message received from iframe:', {
+        type: event.data?.type,
+        marker: event.data?.marker,
+        origin: event.origin,
+        fullData: event.data
+      });
+
+      // Listen for both TEXT_CLICKED and IMAGE_CLICKED
       if (event.data?.type === 'TEXT_CLICKED' || event.data?.type === 'IMAGE_CLICKED') {
         const clickedMarker = event.data.marker;
-        console.log('[Schedule] Zone clicked:', clickedMarker);
+
+        console.log('[Schedule] 🎯 Zone click detected!');
+        console.log('[Schedule] 📍 Clicked marker:', clickedMarker);
+        console.log('[Schedule] 📊 Total zones loaded:', zones.length);
+        console.log('[Schedule] 🏷️  Available markers:', zones.map(z => z.marker_name));
+
+        if (zones.length === 0) {
+          console.log('[Schedule] ⚠️  No zones loaded yet! Message will be ignored.');
+          setError('Zones are still loading. Please wait and try again.');
+          setTimeout(() => setError(''), 3000);
+          return;
+        }
 
         const zone = zones.find(z => z.marker_name === clickedMarker);
+
         if (zone) {
-          console.log('[Schedule] Found zone:', zone.slot_label);
+          console.log('[Schedule] ✅ MATCH FOUND!', {
+            zoneId: zone.id,
+            label: zone.slot_label,
+            marker: zone.marker_name
+          });
           handleZoneClick(zone.id);
         } else {
-          console.log('[Schedule] Zone not found in list. Available zones:', zones.map(z => z.marker_name));
+          console.log('[Schedule] ❌ NO MATCH!');
+          console.log('[Schedule] Clicked:', clickedMarker);
+          console.log('[Schedule] Available zones:', zones.map(z => ({
+            marker: z.marker_name,
+            label: z.slot_label,
+            id: z.id
+          })));
+
+          // Show helpful error to user
+          setError(`Zone "${clickedMarker}" not found in database. Try refreshing zones.`);
+          setTimeout(() => setError(''), 4000);
         }
       }
     };
 
+    console.log('[Schedule] 👂 Message listener attached. Zones count:', zones.length);
+    console.log('[Schedule] 📋 Listening for zones:', zones.map(z => z.marker_name).join(', '));
+
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+
+    return () => {
+      console.log('[Schedule] 🔇 Message listener removed');
+      window.removeEventListener('message', handleMessage);
+    };
   }, [zones]);
+
+  // NEW: Monitor iframe load status
+  const handleIframeLoad = () => {
+    setIframeLoaded(true);
+    console.log('[Schedule] ✅ Iframe loaded successfully');
+    console.log('[Schedule] 📡 Ready to receive zone click messages');
+  };
 
   const loadSites = async () => {
     try {
@@ -107,13 +158,14 @@ export default function SchedulePage() {
       const data = await response.json();
       const sitesArray = Array.isArray(data) ? data : (data.sites || []);
 
+      console.log('[Schedule] 🌐 Sites loaded:', sitesArray.length);
       setSites(sitesArray);
       if (sitesArray.length > 0) {
         setSelectedSite(sitesArray[0].id);
       }
       setLoading(false);
     } catch (err: any) {
-      console.error('[Schedule] Error loading sites:', err);
+      console.error('[Schedule] ❌ Error loading sites:', err);
       setError(err.message);
       setSites([]);
       setLoading(false);
@@ -125,22 +177,40 @@ export default function SchedulePage() {
       const token = localStorage.getItem('token');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
 
+      console.log('[Schedule] 📥 Loading zones for site:', selectedSite);
+
       const response = await fetch(`${apiUrl}/api/schedule/zones/${selectedSite}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) throw new Error('Failed to load zones');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('[Schedule] ❌ Zone load failed:', response.status, errorText);
+        throw new Error('Failed to load zones');
+      }
 
       const data = await response.json();
-      setZones(data.zones || []);
+      const loadedZones = data.zones || [];
+
+      console.log('[Schedule] ✅ Zones loaded successfully:', loadedZones.length);
+      console.log('[Schedule] 📋 Zone details:', loadedZones.map((z: Zone) => ({
+        id: z.id,
+        marker: z.marker_name,
+        label: z.slot_label,
+        pendingCount: z.pending_count
+      })));
+
+      setZones(loadedZones);
     } catch (err: any) {
-      console.error('[Schedule] Error loading zones:', err);
+      console.error('[Schedule] ❌ Error loading zones:', err);
       setError(err.message);
       setZones([]);
     }
   };
 
   const handleZoneClick = async (zoneId: string) => {
+    console.log('[Schedule] 🔄 Loading queue for zone:', zoneId);
+
     try {
       const token = localStorage.getItem('token');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
@@ -152,9 +222,12 @@ export default function SchedulePage() {
       if (!response.ok) throw new Error('Failed to load queue');
 
       const data = await response.json();
+      console.log('[Schedule] ✅ Queue loaded:', data.zone);
+
       setSelectedZone(data.zone);
+      setShowZoneList(false); // Close zone list if open
     } catch (err: any) {
-      console.error('[Schedule] Error loading queue:', err);
+      console.error('[Schedule] ❌ Error loading queue:', err);
       setError(err.message);
     }
   };
@@ -197,7 +270,7 @@ export default function SchedulePage() {
         throw new Error(errorData.error || 'Failed to schedule content');
       }
 
-      setMessage('Content scheduled successfully!');
+      setMessage('✅ Content scheduled successfully!');
       setShowForm(false);
       setContentText('');
       setContentImageUrl('');
@@ -211,7 +284,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
-      console.error('[Schedule] Error scheduling content:', err);
+      console.error('[Schedule] ❌ Error scheduling content:', err);
       setError(err.message);
     } finally {
       setSaving(false);
@@ -234,7 +307,7 @@ export default function SchedulePage() {
 
       if (!response.ok) throw new Error('Failed to cancel scheduled content');
 
-      setMessage('Scheduled content cancelled');
+      setMessage('✅ Scheduled content cancelled');
       await loadZones();
       if (selectedZone) {
         await handleZoneClick(selectedZone.id);
@@ -242,7 +315,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
-      console.error('[Schedule] Error cancelling:', err);
+      console.error('[Schedule] ❌ Error cancelling:', err);
       setError(err.message);
     }
   };
@@ -263,7 +336,7 @@ export default function SchedulePage() {
 
       if (!response.ok) throw new Error('Failed to deploy content');
 
-      setMessage('Content deployed successfully!');
+      setMessage('✅ Content deployed successfully!');
       await loadZones();
       if (selectedZone) {
         await handleZoneClick(selectedZone.id);
@@ -271,7 +344,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
-      console.error('[Schedule] Error deploying:', err);
+      console.error('[Schedule] ❌ Error deploying:', err);
       setError(err.message);
     }
   };
@@ -312,12 +385,36 @@ export default function SchedulePage() {
           color: 'white'
         }}>
           <div style={{ marginBottom: '12px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, marginBottom: '4px' }}>
-              📅 Content Schedule - Visual Mode
-            </h2>
-            <p style={{ fontSize: '13px', margin: 0, opacity: 0.9 }}>
-              Click any zone on the preview to view its schedule timeline
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, marginBottom: '4px' }}>
+                  📅 Content Schedule - Visual Mode
+                </h2>
+                <p style={{ fontSize: '13px', margin: 0, opacity: 0.9 }}>
+                  Click any zone on the preview to view its schedule timeline
+                </p>
+              </div>
+
+              {/* NEW: Zone List Toggle Button */}
+              {zones.length > 0 && (
+                <button
+                  onClick={() => setShowZoneList(!showZoneList)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: showZoneList ? '#e74c3c' : 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {showZoneList ? '✕ Close' : '📋 Show Zones'}
+                </button>
+              )}
+            </div>
           </div>
 
           <select
@@ -325,6 +422,7 @@ export default function SchedulePage() {
             onChange={(e) => {
               setSelectedSite(e.target.value);
               setSelectedZone(null);
+              setShowZoneList(false);
             }}
             style={{
               width: '100%',
@@ -343,6 +441,27 @@ export default function SchedulePage() {
               </option>
             ))}
           </select>
+
+          {/* Iframe Status Indicator */}
+          {currentUrl && (
+            <div style={{
+              marginTop: '8px',
+              fontSize: '11px',
+              opacity: 0.8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: iframeLoaded ? '#2ecc71' : '#f39c12',
+                display: 'inline-block'
+              }} />
+              {iframeLoaded ? 'Preview loaded - Click detection active' : 'Loading preview...'}
+            </div>
+          )}
 
           {/* Messages */}
           {message && (
@@ -373,12 +492,82 @@ export default function SchedulePage() {
           )}
         </div>
 
+        {/* NEW: Zone List Overlay */}
+        {showZoneList && zones.length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '180px',
+            left: '20px',
+            right: '20px',
+            maxWidth: '600px',
+            backgroundColor: 'white',
+            border: '2px solid #3498db',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            zIndex: 100,
+            maxHeight: '400px',
+            overflow: 'auto'
+          }}>
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid #e0e0e0',
+              backgroundColor: '#f8f9fa',
+              fontWeight: '600',
+              fontSize: '14px',
+              position: 'sticky',
+              top: 0
+            }}>
+              📋 Content Zones ({zones.length})
+            </div>
+            <div>
+              {zones.map((zone) => (
+                <div
+                  key={zone.id}
+                  onClick={() => handleZoneClick(zone.id)}
+                  style={{
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #f0f0f0',
+                    cursor: 'pointer',
+                    backgroundColor: selectedZone?.id === zone.id ? '#e3f2fd' : 'white',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = selectedZone?.id === zone.id ? '#e3f2fd' : 'white';
+                  }}
+                >
+                  <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
+                    {zone.slot_label}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                    {zone.marker_name}
+                  </div>
+                  {zone.pending_count > 0 && (
+                    <div style={{
+                      display: 'inline-block',
+                      padding: '2px 8px',
+                      backgroundColor: '#3498db',
+                      color: 'white',
+                      borderRadius: '10px',
+                      fontSize: '11px',
+                      fontWeight: '600'
+                    }}>
+                      {zone.pending_count} scheduled
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Live Preview */}
         {currentUrl && (
           <div style={{ flex: 1, position: 'relative' }}>
             <iframe
               ref={iframeRef}
               src={`https://safewebedit.com/api/visual-proxy?url=${encodeURIComponent(currentUrl)}`}
+              onLoad={handleIframeLoad}
               style={{
                 width: '100%',
                 height: '100%',
@@ -664,9 +853,14 @@ export default function SchedulePage() {
             color: '#999'
           }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>👈</div>
-            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
+            <div style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '16px' }}>
               Click on any content zone in the preview to view and manage its schedule timeline
             </div>
+            {zones.length > 0 && (
+              <div style={{ fontSize: '13px', color: '#3498db' }}>
+                Or click "Show Zones" above to see a list of all zones
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -816,42 +1010,44 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* Buttons */}
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="button"
                   onClick={() => {
                     setShowForm(false);
                     setContentText('');
                     setContentImageUrl('');
-                    setScheduledDate('');
-                    setScheduledHour('12');
                   }}
                   style={{
-                    padding: '10px 18px',
+                    flex: 1,
+                    padding: '12px',
                     backgroundColor: '#95a5a6',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
+                    borderRadius: '6px',
                     cursor: 'pointer',
-                    fontSize: '13px'
+                    fontSize: '14px',
+                    fontWeight: '600'
                   }}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
                   style={{
-                    padding: '10px 18px',
+                    flex: 1,
+                    padding: '12px',
                     backgroundColor: saving ? '#95a5a6' : '#3498db',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
+                    borderRadius: '6px',
                     cursor: saving ? 'not-allowed' : 'pointer',
-                    fontSize: '13px',
+                    fontSize: '14px',
                     fontWeight: '600'
                   }}
+                  disabled={saving}
                 >
                   {saving ? 'Scheduling...' : 'Schedule'}
                 </button>
