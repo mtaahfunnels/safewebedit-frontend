@@ -33,6 +33,8 @@ interface Zone {
 
 export default function SchedulePage() {
   const router = useRouter();
+
+  // Always declare all hooks at the top - never conditionally
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState('');
   const [zones, setZones] = useState<Zone[]>([]);
@@ -76,13 +78,19 @@ export default function SchedulePage() {
       if (!response.ok) throw new Error('Failed to load sites');
 
       const data = await response.json();
-      setSites(data);
-      if (data.length > 0) {
-        setSelectedSite(data[0].id);
+
+      // Handle both array and object responses
+      const sitesArray = Array.isArray(data) ? data : (data.sites || []);
+
+      setSites(sitesArray);
+      if (sitesArray.length > 0) {
+        setSelectedSite(sitesArray[0].id);
       }
       setLoading(false);
     } catch (err: any) {
+      console.error('[Schedule] Error loading sites:', err);
       setError(err.message);
+      setSites([]); // Ensure sites is always an array
       setLoading(false);
     }
   };
@@ -101,7 +109,9 @@ export default function SchedulePage() {
       const data = await response.json();
       setZones(data.zones || []);
     } catch (err: any) {
+      console.error('[Schedule] Error loading zones:', err);
       setError(err.message);
+      setZones([]); // Ensure zones is always an array
     }
   };
 
@@ -119,6 +129,7 @@ export default function SchedulePage() {
       const data = await response.json();
       setSelectedZone(data.zone);
     } catch (err: any) {
+      console.error('[Schedule] Error loading queue:', err);
       setError(err.message);
     }
   };
@@ -177,6 +188,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
+      console.error('[Schedule] Error scheduling content:', err);
       setError(err.message);
     } finally {
       setSaving(false);
@@ -207,6 +219,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
+      console.error('[Schedule] Error cancelling:', err);
       setError(err.message);
     }
   };
@@ -235,6 +248,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
+      console.error('[Schedule] Error deploying:', err);
       setError(err.message);
     }
   };
@@ -256,6 +270,7 @@ export default function SchedulePage() {
     return today.toISOString().split('T')[0];
   };
 
+  // Early return AFTER all hooks are declared
   if (loading) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
@@ -318,7 +333,7 @@ export default function SchedulePage() {
             }}
           >
             <option value="">-- Select a site --</option>
-            {sites.map((site) => (
+            {Array.isArray(sites) && sites.map((site) => (
               <option key={site.id} value={site.id}>
                 {site.name}
               </option>
@@ -354,7 +369,7 @@ export default function SchedulePage() {
       </div>
 
       {/* Zones List */}
-      {selectedSite && zones.length > 0 && (
+      {selectedSite && Array.isArray(zones) && zones.length > 0 && (
         <div style={{
           backgroundColor: 'white',
           padding: '24px',
@@ -445,7 +460,7 @@ export default function SchedulePage() {
           </div>
 
           {/* Upcoming Queue */}
-          {selectedZone.scheduled_queue && selectedZone.scheduled_queue.length > 0 && (
+          {selectedZone.scheduled_queue && Array.isArray(selectedZone.scheduled_queue) && selectedZone.scheduled_queue.length > 0 && (
             <div>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#666', marginBottom: '8px' }}>
                 UPCOMING:
@@ -744,7 +759,7 @@ export default function SchedulePage() {
       )}
 
       {/* Empty State */}
-      {selectedSite && zones.length === 0 && (
+      {selectedSite && Array.isArray(zones) && zones.length === 0 && (
         <div style={{
           backgroundColor: 'white',
           padding: '40px',
