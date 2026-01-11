@@ -31,6 +31,13 @@ interface Zone {
   scheduled_queue?: ScheduledItem[];
 }
 
+interface DiagnosticLog {
+  timestamp: string;
+  type: 'info' | 'success' | 'error' | 'message';
+  message: string;
+  data?: any;
+}
+
 export default function SchedulePage() {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -46,6 +53,12 @@ export default function SchedulePage() {
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [showZoneList, setShowZoneList] = useState(false);
 
+  // DIAGNOSTIC STATE
+  const [showDiagnostics, setShowDiagnostics] = useState(true);
+  const [diagnosticLogs, setDiagnosticLogs] = useState<DiagnosticLog[]>([]);
+  const [messageCount, setMessageCount] = useState(0);
+  const [lastMessage, setLastMessage] = useState<any>(null);
+
   // Form state
   const [showForm, setShowForm] = useState(false);
   const [contentType, setContentType] = useState<'text' | 'image'>('text');
@@ -55,7 +68,24 @@ export default function SchedulePage() {
   const [scheduledHour, setScheduledHour] = useState('12');
   const [saving, setSaving] = useState(false);
 
+  // DIAGNOSTIC HELPER
+  const addLog = (type: 'info' | 'success' | 'error' | 'message', message: string, data?: any) => {
+    const log: DiagnosticLog = {
+      timestamp: new Date().toLocaleTimeString(),
+      type,
+      message,
+      data
+    };
+
+    setDiagnosticLogs(prev => [log, ...prev].slice(0, 50)); // Keep last 50 logs
+
+    // Also log to console with emoji
+    const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'message' ? '📨' : 'ℹ️';
+    console.log(`${emoji} [${log.timestamp}] ${message}`, data || '');
+  };
+
   useEffect(() => {
+    addLog('info', 'Schedule page mounted');
     loadSites();
   }, []);
 
@@ -63,6 +93,7 @@ export default function SchedulePage() {
     if (selectedSite) {
       const site = sites.find(s => s.id === selectedSite);
       if (site) {
+        addLog('info', `Site selected: ${site.name}`, { url: site.url });
         setCurrentUrl(site.url);
         setIframeLoaded(false);
         loadZones();
@@ -70,74 +101,69 @@ export default function SchedulePage() {
     }
   }, [selectedSite, sites]);
 
-  // IMPROVED: Listen for zone clicks from iframe with better debugging
+  // CRITICAL: Message listener with extensive diagnostics
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Log ALL messages to see what's coming through
-      console.log('[Schedule] 🔔 Message received from iframe:', {
+      setMessageCount(prev => prev + 1);
+      setLastMessage(event.data);
+
+      addLog('message', 'Message received from iframe', {
         type: event.data?.type,
         marker: event.data?.marker,
-        origin: event.origin,
-        fullData: event.data
+        origin: event.origin
       });
 
-      // Listen for both TEXT_CLICKED and IMAGE_CLICKED
+      // Check for TEXT_CLICKED or IMAGE_CLICKED
       if (event.data?.type === 'TEXT_CLICKED' || event.data?.type === 'IMAGE_CLICKED') {
         const clickedMarker = event.data.marker;
 
-        console.log('[Schedule] 🎯 Zone click detected!');
-        console.log('[Schedule] 📍 Clicked marker:', clickedMarker);
-        console.log('[Schedule] 📊 Total zones loaded:', zones.length);
-        console.log('[Schedule] 🏷️  Available markers:', zones.map(z => z.marker_name));
+        addLog('info', `Zone click detected: ${clickedMarker}`, {
+          clickType: event.data.type,
+          totalZones: zones.length,
+          zoneMarkers: zones.map(z => z.marker_name)
+        });
 
         if (zones.length === 0) {
-          console.log('[Schedule] ⚠️  No zones loaded yet! Message will be ignored.');
+          addLog('error', 'No zones loaded yet - cannot process click');
           setError('Zones are still loading. Please wait and try again.');
           setTimeout(() => setError(''), 3000);
           return;
         }
 
+        // Try to find the zone
         const zone = zones.find(z => z.marker_name === clickedMarker);
 
         if (zone) {
-          console.log('[Schedule] ✅ MATCH FOUND!', {
+          addLog('success', `✅ Zone match found: ${zone.slot_label}`, {
             zoneId: zone.id,
-            label: zone.slot_label,
-            marker: zone.marker_name
+            marker: zone.marker_name,
+            pendingCount: zone.pending_count
           });
           handleZoneClick(zone.id);
         } else {
-          console.log('[Schedule] ❌ NO MATCH!');
-          console.log('[Schedule] Clicked:', clickedMarker);
-          console.log('[Schedule] Available zones:', zones.map(z => ({
-            marker: z.marker_name,
-            label: z.slot_label,
-            id: z.id
-          })));
-
-          // Show helpful error to user
-          setError(`Zone "${clickedMarker}" not found in database. Try refreshing zones.`);
+          addLog('error', `❌ No matching zone found for marker: ${clickedMarker}`, {
+            clickedMarker,
+            availableMarkers: zones.map(z => z.marker_name),
+            suggestion: 'Check if marker names in database match marker names in HTML'
+          });
+          setError(`Zone "${clickedMarker}" not found in database`);
           setTimeout(() => setError(''), 4000);
         }
       }
     };
 
-    console.log('[Schedule] 👂 Message listener attached. Zones count:', zones.length);
-    console.log('[Schedule] 📋 Listening for zones:', zones.map(z => z.marker_name).join(', '));
-
+    addLog('info', 'Message listener attached', { zonesLoaded: zones.length });
     window.addEventListener('message', handleMessage);
 
     return () => {
-      console.log('[Schedule] 🔇 Message listener removed');
+      addLog('info', 'Message listener removed');
       window.removeEventListener('message', handleMessage);
     };
   }, [zones]);
 
-  // NEW: Monitor iframe load status
   const handleIframeLoad = () => {
     setIframeLoaded(true);
-    console.log('[Schedule] ✅ Iframe loaded successfully');
-    console.log('[Schedule] 📡 Ready to receive zone click messages');
+    addLog('success', '✅ Iframe loaded successfully');
   };
 
   const loadSites = async () => {
@@ -149,6 +175,8 @@ export default function SchedulePage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
+      addLog('info', 'Loading sites from API', { apiUrl });
+
       const response = await fetch(`${apiUrl}/api/wordpress/sites`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -158,14 +186,15 @@ export default function SchedulePage() {
       const data = await response.json();
       const sitesArray = Array.isArray(data) ? data : (data.sites || []);
 
-      console.log('[Schedule] 🌐 Sites loaded:', sitesArray.length);
+      addLog('success', `✅ Loaded ${sitesArray.length} sites`);
       setSites(sitesArray);
+
       if (sitesArray.length > 0) {
         setSelectedSite(sitesArray[0].id);
       }
       setLoading(false);
     } catch (err: any) {
-      console.error('[Schedule] ❌ Error loading sites:', err);
+      addLog('error', `❌ Failed to load sites: ${err.message}`);
       setError(err.message);
       setSites([]);
       setLoading(false);
@@ -177,7 +206,7 @@ export default function SchedulePage() {
       const token = localStorage.getItem('token');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
 
-      console.log('[Schedule] 📥 Loading zones for site:', selectedSite);
+      addLog('info', `Loading zones for site: ${selectedSite}`);
 
       const response = await fetch(`${apiUrl}/api/schedule/zones/${selectedSite}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -185,31 +214,30 @@ export default function SchedulePage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.log('[Schedule] ❌ Zone load failed:', response.status, errorText);
-        throw new Error('Failed to load zones');
+        throw new Error(`API returned ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
       const loadedZones = data.zones || [];
 
-      console.log('[Schedule] ✅ Zones loaded successfully:', loadedZones.length);
-      console.log('[Schedule] 📋 Zone details:', loadedZones.map((z: Zone) => ({
-        id: z.id,
-        marker: z.marker_name,
-        label: z.slot_label,
-        pendingCount: z.pending_count
-      })));
+      addLog('success', `✅ Loaded ${loadedZones.length} zones`, {
+        zones: loadedZones.map((z: Zone) => ({
+          id: z.id,
+          marker: z.marker_name,
+          label: z.slot_label
+        }))
+      });
 
       setZones(loadedZones);
     } catch (err: any) {
-      console.error('[Schedule] ❌ Error loading zones:', err);
+      addLog('error', `❌ Failed to load zones: ${err.message}`);
       setError(err.message);
       setZones([]);
     }
   };
 
   const handleZoneClick = async (zoneId: string) => {
-    console.log('[Schedule] 🔄 Loading queue for zone:', zoneId);
+    addLog('info', `Loading queue for zone: ${zoneId}`);
 
     try {
       const token = localStorage.getItem('token');
@@ -222,14 +250,24 @@ export default function SchedulePage() {
       if (!response.ok) throw new Error('Failed to load queue');
 
       const data = await response.json();
-      console.log('[Schedule] ✅ Queue loaded:', data.zone);
+
+      addLog('success', `✅ Queue loaded for zone`, {
+        zoneLabel: data.zone.slot_label,
+        pendingItems: data.zone.scheduled_queue?.length || 0
+      });
 
       setSelectedZone(data.zone);
-      setShowZoneList(false); // Close zone list if open
+      setShowZoneList(false);
     } catch (err: any) {
-      console.error('[Schedule] ❌ Error loading queue:', err);
+      addLog('error', `❌ Failed to load queue: ${err.message}`);
       setError(err.message);
     }
+  };
+
+  // MANUAL TEST FUNCTION
+  const testZoneSelection = (zoneId: string) => {
+    addLog('info', `🧪 Manual test: Selecting zone ${zoneId}`);
+    handleZoneClick(zoneId);
   };
 
   const handleScheduleContent = async (e: React.FormEvent) => {
@@ -284,7 +322,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
-      console.error('[Schedule] ❌ Error scheduling content:', err);
+      addLog('error', `❌ Failed to schedule: ${err.message}`);
       setError(err.message);
     } finally {
       setSaving(false);
@@ -315,7 +353,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
-      console.error('[Schedule] ❌ Error cancelling:', err);
+      addLog('error', `❌ Cancel failed: ${err.message}`);
       setError(err.message);
     }
   };
@@ -344,7 +382,7 @@ export default function SchedulePage() {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
-      console.error('[Schedule] ❌ Error deploying:', err);
+      addLog('error', `❌ Deploy failed: ${err.message}`);
       setError(err.message);
     }
   };
@@ -388,20 +426,19 @@ export default function SchedulePage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, marginBottom: '4px' }}>
-                  📅 Content Schedule - Visual Mode
+                  📅 Content Schedule - DIAGNOSTIC MODE
                 </h2>
                 <p style={{ fontSize: '13px', margin: 0, opacity: 0.9 }}>
                   Click any zone on the preview to view its schedule timeline
                 </p>
               </div>
 
-              {/* NEW: Zone List Toggle Button */}
-              {zones.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => setShowZoneList(!showZoneList)}
+                  onClick={() => setShowDiagnostics(!showDiagnostics)}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: showZoneList ? '#e74c3c' : 'rgba(255,255,255,0.2)',
+                    backgroundColor: showDiagnostics ? '#e74c3c' : '#27ae60',
                     color: 'white',
                     border: '1px solid rgba(255,255,255,0.3)',
                     borderRadius: '4px',
@@ -411,9 +448,28 @@ export default function SchedulePage() {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  {showZoneList ? '✕ Close' : '📋 Show Zones'}
+                  {showDiagnostics ? '🔍 Hide Diagnostics' : '🔍 Show Diagnostics'}
                 </button>
-              )}
+
+                {zones.length > 0 && (
+                  <button
+                    onClick={() => setShowZoneList(!showZoneList)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: showZoneList ? '#e74c3c' : 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {showZoneList ? '✕ Close' : '📋 Show Zones'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -442,24 +498,39 @@ export default function SchedulePage() {
             ))}
           </select>
 
-          {/* Iframe Status Indicator */}
+          {/* Status Indicators */}
           {currentUrl && (
             <div style={{
-              marginTop: '8px',
-              fontSize: '11px',
-              opacity: 0.8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
+              marginTop: '12px',
+              fontSize: '12px',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '8px'
             }}>
-              <span style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                backgroundColor: iframeLoaded ? '#2ecc71' : '#f39c12',
-                display: 'inline-block'
-              }} />
-              {iframeLoaded ? 'Preview loaded - Click detection active' : 'Loading preview...'}
+              <div style={{
+                padding: '6px',
+                backgroundColor: zones.length > 0 ? 'rgba(46, 204, 113, 0.2)' : 'rgba(241, 196, 15, 0.2)',
+                borderRadius: '4px',
+                textAlign: 'center'
+              }}>
+                {zones.length > 0 ? '✅' : '⏳'} Zones: {zones.length}
+              </div>
+              <div style={{
+                padding: '6px',
+                backgroundColor: iframeLoaded ? 'rgba(46, 204, 113, 0.2)' : 'rgba(241, 196, 15, 0.2)',
+                borderRadius: '4px',
+                textAlign: 'center'
+              }}>
+                {iframeLoaded ? '✅' : '⏳'} Preview
+              </div>
+              <div style={{
+                padding: '6px',
+                backgroundColor: messageCount > 0 ? 'rgba(46, 204, 113, 0.2)' : 'rgba(149, 165, 166, 0.2)',
+                borderRadius: '4px',
+                textAlign: 'center'
+              }}>
+                📨 Messages: {messageCount}
+              </div>
             </div>
           )}
 
@@ -492,11 +563,122 @@ export default function SchedulePage() {
           )}
         </div>
 
-        {/* NEW: Zone List Overlay */}
+        {/* Diagnostic Panel */}
+        {showDiagnostics && (
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#f8f9fa',
+            borderBottom: '2px solid #3498db',
+            maxHeight: '300px',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>
+                🔍 Diagnostic Log (Last 50 events)
+              </h3>
+              <button
+                onClick={() => setDiagnosticLogs([])}
+                style={{
+                  padding: '4px 8px',
+                  backgroundColor: '#e74c3c',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '11px'
+                }}
+              >
+                Clear Log
+              </button>
+            </div>
+
+            {/* Test Zone Buttons */}
+            {zones.length > 0 && (
+              <div style={{
+                marginBottom: '12px',
+                padding: '12px',
+                backgroundColor: '#e3f2fd',
+                borderRadius: '6px',
+                border: '1px solid #2196f3'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>
+                  🧪 Manual Test - Click to select zone:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {zones.slice(0, 5).map(zone => (
+                    <button
+                      key={zone.id}
+                      onClick={() => testZoneSelection(zone.id)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: selectedZone?.id === zone.id ? '#27ae60' : '#3498db',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {zone.slot_label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontSize: '11px', fontFamily: 'monospace' }}>
+              {diagnosticLogs.length === 0 ? (
+                <div style={{ color: '#999', textAlign: 'center', padding: '20px' }}>
+                  No diagnostic logs yet. Click on a zone to start.
+                </div>
+              ) : (
+                diagnosticLogs.map((log, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      padding: '6px 8px',
+                      marginBottom: '4px',
+                      backgroundColor:
+                        log.type === 'success' ? '#d4edda' :
+                        log.type === 'error' ? '#f8d7da' :
+                        log.type === 'message' ? '#d1ecf1' :
+                        'white',
+                      border: '1px solid ' + (
+                        log.type === 'success' ? '#c3e6cb' :
+                        log.type === 'error' ? '#f5c6cb' :
+                        log.type === 'message' ? '#bee5eb' :
+                        '#e0e0e0'
+                      ),
+                      borderRadius: '4px',
+                      color: '#333'
+                    }}
+                  >
+                    <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                      [{log.timestamp}] {
+                        log.type === 'success' ? '✅' :
+                        log.type === 'error' ? '❌' :
+                        log.type === 'message' ? '📨' :
+                        'ℹ️'
+                      } {log.message}
+                    </div>
+                    {log.data && (
+                      <div style={{ fontSize: '10px', color: '#666', marginLeft: '20px' }}>
+                        {JSON.stringify(log.data, null, 2)}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Zone List Overlay */}
         {showZoneList && zones.length > 0 && (
           <div style={{
             position: 'absolute',
-            top: '180px',
+            top: showDiagnostics ? '480px' : '180px',
             left: '20px',
             right: '20px',
             maxWidth: '600px',
@@ -523,7 +705,7 @@ export default function SchedulePage() {
               {zones.map((zone) => (
                 <div
                   key={zone.id}
-                  onClick={() => handleZoneClick(zone.id)}
+                  onClick={() => testZoneSelection(zone.id)}
                   style={{
                     padding: '12px 16px',
                     borderBottom: '1px solid #f0f0f0',
@@ -540,7 +722,7 @@ export default function SchedulePage() {
                     {zone.slot_label}
                   </div>
                   <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                    {zone.marker_name}
+                    Marker: {zone.marker_name}
                   </div>
                   {zone.pending_count > 0 && (
                     <div style={{
@@ -648,9 +830,8 @@ export default function SchedulePage() {
               </button>
             </div>
 
-            {/* Timeline */}
+            {/* Timeline - (keeping existing timeline code) */}
             <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
-              {/* Current Live Content */}
               <div style={{ marginBottom: '24px' }}>
                 <div style={{
                   fontSize: '12px',
@@ -679,7 +860,6 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* Upcoming Timeline */}
               {selectedZone.scheduled_queue && Array.isArray(selectedZone.scheduled_queue) && selectedZone.scheduled_queue.length > 0 ? (
                 <div>
                   <div style={{
@@ -693,9 +873,7 @@ export default function SchedulePage() {
                     📅 Upcoming Schedule
                   </div>
 
-                  {/* Timeline Items */}
                   <div style={{ position: 'relative', paddingLeft: '24px' }}>
-                    {/* Timeline Line */}
                     <div style={{
                       position: 'absolute',
                       left: '9px',
@@ -707,7 +885,6 @@ export default function SchedulePage() {
 
                     {selectedZone.scheduled_queue.map((item, index) => (
                       <div key={item.id} style={{ position: 'relative', marginBottom: '20px' }}>
-                        {/* Timeline Dot */}
                         <div style={{
                           position: 'absolute',
                           left: '-24px',
@@ -720,14 +897,12 @@ export default function SchedulePage() {
                           boxShadow: '0 0 0 2px #e0e0e0'
                         }} />
 
-                        {/* Content Card */}
                         <div style={{
                           padding: '12px',
                           backgroundColor: item.status === 'failed' ? '#fff5f5' : '#f8f9fa',
                           border: `1px solid ${item.status === 'failed' ? '#f8d7da' : '#e0e0e0'}`,
                           borderRadius: '6px'
                         }}>
-                          {/* Time */}
                           <div style={{
                             fontSize: '13px',
                             fontWeight: '600',
@@ -737,7 +912,6 @@ export default function SchedulePage() {
                             {formatDateTime(item.scheduled_at)}
                           </div>
 
-                          {/* Content Type */}
                           <div style={{
                             fontSize: '12px',
                             color: '#666',
@@ -747,7 +921,6 @@ export default function SchedulePage() {
                             {item.content_type === 'text' ? '📝 Text Content' : '🖼️ Image Content'}
                           </div>
 
-                          {/* Content Preview */}
                           {item.content_text && (
                             <div style={{
                               fontSize: '12px',
@@ -775,7 +948,6 @@ export default function SchedulePage() {
                             />
                           )}
 
-                          {/* Error */}
                           {item.status === 'failed' && item.error_message && (
                             <div style={{
                               padding: '6px 8px',
@@ -789,7 +961,6 @@ export default function SchedulePage() {
                             </div>
                           )}
 
-                          {/* Actions */}
                           <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                             <button
                               onClick={() => handleDeployNow(item.id)}
@@ -857,9 +1028,14 @@ export default function SchedulePage() {
               Click on any content zone in the preview to view and manage its schedule timeline
             </div>
             {zones.length > 0 && (
-              <div style={{ fontSize: '13px', color: '#3498db' }}>
-                Or click "Show Zones" above to see a list of all zones
-              </div>
+              <>
+                <div style={{ fontSize: '13px', color: '#3498db', marginBottom: '16px' }}>
+                  Or click "Show Zones" above to see a list of all zones
+                </div>
+                <div style={{ fontSize: '13px', color: '#27ae60', fontWeight: 'bold' }}>
+                  💡 Or use the manual test buttons in the diagnostic panel
+                </div>
+              </>
             )}
           </div>
         )}
@@ -893,7 +1069,6 @@ export default function SchedulePage() {
             </h2>
 
             <form onSubmit={handleScheduleContent}>
-              {/* Content Type */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', fontWeight: '600' }}>
                   Content Type:
@@ -920,7 +1095,6 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* Content */}
               {contentType === 'text' ? (
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', fontWeight: '600' }}>
@@ -964,7 +1138,6 @@ export default function SchedulePage() {
                 </div>
               )}
 
-              {/* Date & Time */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', fontWeight: '600' }}>
@@ -1010,7 +1183,6 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="button"
