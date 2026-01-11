@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface UserInfo {
   name: string;
@@ -32,7 +33,6 @@ export default function SettingsPage() {
     }
 
     try {
-      // Get user info from token
       const payload = JSON.parse(atob(token.split(".")[1]));
       setUser({
         name: payload.name || "User",
@@ -191,6 +191,42 @@ export default function SettingsPage() {
             Update Profile
           </button>
         </form>
+      </div>
+
+      <div style={{
+        backgroundColor: "white",
+        border: "1px solid #e0e0e0",
+        borderRadius: "8px",
+        padding: "24px",
+        marginTop: "24px"
+      }}>
+        <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px" }}>Security</h2>
+        
+        <div style={{ marginBottom: "16px" }}>
+          <h3 style={{ fontSize: "16px", fontWeight: "500", marginBottom: "8px" }}>
+            Two-Factor Authentication
+          </h3>
+          <p style={{ fontSize: "14px", color: "#666", marginBottom: "12px" }}>
+            Add an extra layer of security to your account with time-based one-time passwords (TOTP).
+          </p>
+          <Link 
+            href="/dashboard/settings/security"
+            style={{
+              display: "inline-block",
+              padding: "10px 20px",
+              backgroundColor: "#28a745",
+              color: "white",
+              textDecoration: "none",
+              border: "none",
+              borderRadius: "4px",
+              fontSize: "14px",
+              fontWeight: "500",
+              cursor: "pointer"
+            }}
+          >
+            Manage MFA Settings
+          </Link>
+        </div>
       </div>
     </div>
   );
