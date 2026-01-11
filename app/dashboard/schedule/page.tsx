@@ -592,6 +592,45 @@ export default function SchedulePage() {
               </button>
             </div>
 
+            {/* Last Message Display */}
+            {lastMessage && (
+              <div style={{
+                marginBottom: '12px',
+                padding: '12px',
+                backgroundColor: lastMessage.type === 'TEXT_CLICKED' || lastMessage.type === 'IMAGE_CLICKED' ? '#d1fae5' : '#fee2e2',
+                borderRadius: '6px',
+                border: `2px solid ${lastMessage.type === 'TEXT_CLICKED' || lastMessage.type === 'IMAGE_CLICKED' ? '#10b981' : '#ef4444'}`
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+                  📨 Last Message from Iframe:
+                </div>
+                <pre style={{
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  margin: 0,
+                  whiteSpace: 'pre-wrap',
+                  color: '#333',
+                  backgroundColor: 'rgba(255,255,255,0.5)',
+                  padding: '8px',
+                  borderRadius: '4px'
+                }}>
+                  {JSON.stringify(lastMessage, null, 2)}
+                </pre>
+                {(!lastMessage.marker && (lastMessage.type === 'TEXT_CLICKED' || lastMessage.type === 'IMAGE_CLICKED')) && (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    backgroundColor: '#fef3c7',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    color: '#92400e'
+                  }}>
+                    ⚠️ WARNING: Message has correct type but missing 'marker' field!
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Test Zone Buttons */}
             {zones.length > 0 && (
               <div style={{
@@ -748,7 +787,7 @@ export default function SchedulePage() {
           <div style={{ flex: 1, position: 'relative' }}>
             <iframe
               ref={iframeRef}
-              src={`https://safewebedit.com/api/visual-proxy?url=${encodeURIComponent(currentUrl)}&mode=schedule`}
+              src={`https://safewebedit.com/api/visual-proxy?url=${encodeURIComponent(currentUrl)}&mode=schedule&_t=${Date.now()}`}
               onLoad={handleIframeLoad}
               style={{
                 width: '100%',
