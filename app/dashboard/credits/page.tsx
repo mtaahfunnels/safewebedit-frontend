@@ -13,6 +13,22 @@ export default function CreditsPage() {
   const [autoTopupAmount, setAutoTopupAmount] = useState(20);
   const [autoTopupThreshold, setAutoTopupThreshold] = useState(10);
 
+  // Helper: Extract user_id from JWT token if missing from localStorage
+  const getUserIdFromToken = (token: string): string | null => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+      );
+      const decoded = JSON.parse(jsonPayload);
+      return decoded.user_id || null;
+    } catch (error) {
+      console.error('[CREDITS] Failed to decode token:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     fetchBalance();
   }, []);
@@ -20,11 +36,28 @@ export default function CreditsPage() {
   const fetchBalance = async () => {
     try {
       const token = localStorage.getItem('token');
-      const user_id = localStorage.getItem('user_id');
+      let user_id = localStorage.getItem('user_id');
 
-      if (!token || !user_id) {
+      if (!token) {
+        console.log('[CREDITS] No token found, redirecting to login');
         router.push('/login');
         return;
+      }
+
+      // If user_id missing from localStorage, extract from JWT token
+      if (!user_id) {
+        console.log('[CREDITS] user_id missing from localStorage, extracting from token');
+        user_id = getUserIdFromToken(token);
+        
+        if (user_id) {
+          // Save it to localStorage for next time
+          localStorage.setItem('user_id', user_id);
+          console.log('[CREDITS] Saved user_id to localStorage:', user_id);
+        } else {
+          console.log('[CREDITS] Failed to extract user_id from token, redirecting to login');
+          router.push('/login');
+          return;
+        }
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004';
@@ -48,11 +81,22 @@ export default function CreditsPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const user_id = localStorage.getItem('user_id');
+      let user_id = localStorage.getItem('user_id');
 
-      if (!token || !user_id) {
+      if (!token) {
         router.push('/login');
         return;
+      }
+
+      // Extract user_id from token if missing
+      if (!user_id) {
+        user_id = getUserIdFromToken(token);
+        if (user_id) {
+          localStorage.setItem('user_id', user_id);
+        } else {
+          router.push('/login');
+          return;
+        }
       }
 
       const credits = amount * 5; // $1 = 5 credits (simple conversion)
