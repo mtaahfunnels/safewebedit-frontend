@@ -1,0 +1,51 @@
+# GitHub Dependabot Configuration
+# Automatically checks for dependency updates and security vulnerabilities
+
+version: 2
+updates:
+  # Monitor npm dependencies
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: daily
+      time: 09:00
+      timezone: America/Chicago
+    
+    # Automatically create pull requests for security updates
+    open-pull-requests-limit: 10
+    
+    # Group updates by type
+    groups:
+      production-dependencies:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    
+    # Commit message configuration
+    commit-message:
+      prefix: deps
+      include: scope
+    
+    # Labels for pull requests
+    labels:
+      - dependencies
+      - security
+    
+    # Reviewers (optional - add GitHub usernames)
+    # reviewers:
+    #   - your-github-username
+    
+    # Allow only security updates for major versions
+    # (prevents breaking changes from auto-updating)
+    ignore:
+      - dependency-name: *
+        update-types: [version-update:semver-major]
+    
+    # Enable security updates
+    # Dependabot will automatically create PRs for vulnerabilities
