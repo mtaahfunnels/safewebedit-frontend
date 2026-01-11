@@ -26,6 +26,7 @@ interface Zone {
   marker_name: string;
   slot_label: string;
   current_content: string;
+  css_selector: string;
   pending_count: number;
   next_scheduled?: string;
   scheduled_queue?: ScheduledItem[];
@@ -103,6 +104,25 @@ export default function SchedulePage() {
     }
   }, [selectedSite, sites]);
 
+  // Send zones to iframe when zones are loaded (after iframe is ready)
+  useEffect(() => {
+    if (zones.length > 0 && iframeLoaded && iframeRef.current) {
+      const zonesData = zones.map(z => ({
+        marker_name: z.marker_name,
+        css_selector: z.css_selector
+      }));
+
+      iframeRef.current?.contentWindow?.postMessage({
+        type: 'INJECT_MARKERS',
+        zones: zonesData
+      }, '*');
+
+      addLog('info', `📤 Sent ${zonesData.length} zones to iframe for marker injection`, {
+        markers: zonesData.map(z => z.marker_name)
+      });
+    }
+  }, [zones, iframeLoaded]);
+
   // CRITICAL: Message listener with extensive diagnostics
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -166,6 +186,23 @@ export default function SchedulePage() {
   const handleIframeLoad = () => {
     setIframeLoaded(true);
     addLog('success', '✅ Iframe loaded successfully');
+
+    // Send zones to iframe so it can inject markers
+    if (zones.length > 0 && iframeRef.current) {
+      setTimeout(() => {
+        const zonesData = zones.map(z => ({
+          marker_name: z.marker_name,
+          css_selector: z.css_selector
+        }));
+
+        iframeRef.current?.contentWindow?.postMessage({
+          type: 'INJECT_MARKERS',
+          zones: zonesData
+        }, '*');
+
+        addLog('info', `📤 Sent ${zonesData.length} zones to iframe for marker injection`);
+      }, 500); // Small delay to ensure iframe is fully loaded
+    }
   };
 
   const loadSites = async () => {
