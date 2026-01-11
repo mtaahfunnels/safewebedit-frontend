@@ -45,6 +45,7 @@ export default function SchedulePage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState('');
   const [currentUrl, setCurrentUrl] = useState('');
+  const [iframeCacheBuster, setIframeCacheBuster] = useState(Date.now());
   const [zones, setZones] = useState<Zone[]>([]);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +96,7 @@ export default function SchedulePage() {
       if (site) {
         addLog('info', `Site selected: ${site.name}`, { url: site.url });
         setCurrentUrl(site.url);
+        setIframeCacheBuster(Date.now()); // Generate new timestamp only when site changes
         setIframeLoaded(false);
         loadZones();
       }
@@ -787,7 +789,7 @@ export default function SchedulePage() {
           <div style={{ flex: 1, position: 'relative' }}>
             <iframe
               ref={iframeRef}
-              src={`https://safewebedit.com/api/visual-proxy?url=${encodeURIComponent(currentUrl)}&mode=schedule&_t=${Date.now()}`}
+              src={`https://safewebedit.com/api/visual-proxy?url=${encodeURIComponent(currentUrl)}&mode=schedule&_t=${iframeCacheBuster}`}
               onLoad={handleIframeLoad}
               style={{
                 width: '100%',
