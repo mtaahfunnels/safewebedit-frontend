@@ -61,6 +61,8 @@ export default function SchedulePage() {
   const [contentType, setContentType] = useState<'text' | 'image'>('text');
   const [contentText, setContentText] = useState('');
   const [contentImageUrl, setContentImageUrl] = useState('');
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [generatingImage, setGeneratingImage] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledHour, setScheduledHour] = useState('12');
   const [saving, setSaving] = useState(false);
@@ -112,11 +114,31 @@ export default function SchedulePage() {
         }
       }
 
-      // Handle image clicks
+      // Handle image clicks (same pattern as text clicks)
       if (event.data.type === 'IMAGE_CLICKED') {
-        console.log('[Schedule] Image clicked:', event.data);
-        setError('Image scheduling coming soon!');
-        setTimeout(() => setError(''), 3000);
+        console.log('[Schedule] Image clicked:', event.data.data);
+        const { cssSelector } = event.data.data;
+
+        if (!cssSelector) {
+          console.warn('[Schedule] No cssSelector in IMAGE_CLICKED message');
+          return;
+        }
+
+        console.log('[Schedule] Looking for image zone with selector:', cssSelector);
+
+        // Find zone by CSS selector (same pattern as TEXT_CLICKED)
+        const zone = zones.find(z => z.css_selector === cssSelector);
+
+        if (zone) {
+          console.log('[Schedule] ✅ Found image zone:', zone.slot_label);
+          setSelectedZone(null); // Clear first to ensure re-render
+          setContentType('image'); // Set form to image mode
+          await loadZoneQueue(zone.id);
+        } else {
+          console.warn('[Schedule] No image zone found for selector:', cssSelector);
+          setError('Image zone not found. Please add this image in Visual Editor first.');
+          setTimeout(() => setError(''), 4000);
+        }
       }
     };
 
@@ -205,6 +227,45 @@ export default function SchedulePage() {
     }
   };
 
+
+  const generateAIImage = async (prompt: string): Promise<string | null> => {
+    try {
+      setGeneratingImage(true);
+      const token = localStorage.getItem('token');
+
+      console.log('[Schedule] Generating AI image with prompt:', prompt);
+
+      const response = await fetch('https://safewebedit.com/api/ai-image-gen/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          image_type: 'content_image',
+          model: 'flux-pro'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate image');
+      }
+
+      const data = await response.json();
+      console.log('[Schedule] AI image generated:', data.url);
+
+      return data.url;
+    } catch (err: any) {
+      console.error('[Schedule] Image generation error:', err);
+      setError(err.message);
+      return null;
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
   const handleScheduleContent = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -216,6 +277,18 @@ export default function SchedulePage() {
         throw new Error('Please select a zone');
       }
 
+      // Generate AI image if needed
+      let finalImageUrl = contentImageUrl;
+      if (contentType === 'image' && imagePrompt && !contentImageUrl) {
+        console.log('[Schedule] Generating image from prompt before scheduling...');
+        const generatedUrl = await generateAIImage(imagePrompt);
+        if (!generatedUrl) {
+          throw new Error('Failed to generate image. Please try again.');
+        }
+        finalImageUrl = generatedUrl;
+        setContentImageUrl(generatedUrl);
+      }
+
       const token = localStorage.getItem('token');
       const scheduledAt = `${scheduledDate}T${scheduledHour.padStart(2, '0')}:00:00`;
 
@@ -223,7 +296,8 @@ export default function SchedulePage() {
         content_slot_id: selectedZone.id,
         content_type: contentType,
         content_text: contentType === 'text' ? contentText : undefined,
-        content_image_url: contentType === 'image' ? contentImageUrl : undefined,
+        content_image_url: contentType === 'image' ? finalImageUrl : undefined,
+        content_image_prompt: contentType === 'image' ? imagePrompt : undefined,
         scheduled_at: scheduledAt
       };
 
@@ -245,6 +319,7 @@ export default function SchedulePage() {
       setShowForm(false);
       setContentText('');
       setContentImageUrl('');
+      setImagePrompt('');
       setScheduledDate('');
       setScheduledHour('12');
 
@@ -647,25 +722,50 @@ export default function SchedulePage() {
                       />
                     </div>
                   ) : (
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
-                        Image URL
-                      </label>
-                      <input
-                        type="url"
-                        value={contentImageUrl}
-                        onChange={(e) => setContentImageUrl(e.target.value)}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '13px'
-                        }}
-                        placeholder="https://..."
-                      />
-                    </div>
+                    <>
+                      <div style={{ marginBottom: '12px' }}>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
+                          AI Image Prompt
+                        </label>
+                        <textarea
+                          value={imagePrompt}
+                          onChange={(e) => setImagePrompt(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            minHeight: '60px',
+                            padding: '8px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            resize: 'vertical'
+                          }}
+                          placeholder="Describe the image you want to generate..."
+                        />
+                        <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                          {generatingImage ? '⏳ Generating image...' : '💡 AI will generate this image when you schedule'}
+                        </div>
+                      </div>
+
+                      {contentImageUrl && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#27ae60' }}>
+                            ✅ Generated Image Preview
+                          </label>
+                          <img
+                            src={contentImageUrl}
+                            alt="Generated preview"
+                            style={{
+                              width: '100%',
+                              borderRadius: '4px',
+                              border: '1px solid #ddd',
+                              maxHeight: '200px',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', marginBottom: '12px' }}>
@@ -713,20 +813,20 @@ export default function SchedulePage() {
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                       type="submit"
-                      disabled={saving}
+                      disabled={saving || generatingImage}
                       style={{
                         flex: 1,
                         padding: '10px',
-                        backgroundColor: saving ? '#ccc' : '#28a745',
+                        backgroundColor: (saving || generatingImage) ? '#ccc' : '#28a745',
                         color: 'white',
                         border: 'none',
                         borderRadius: '4px',
                         fontSize: '14px',
                         fontWeight: '600',
-                        cursor: saving ? 'not-allowed' : 'pointer'
+                        cursor: (saving || generatingImage) ? 'not-allowed' : 'pointer'
                       }}
                     >
-                      {saving ? 'Saving...' : 'Schedule'}
+                      {generatingImage ? '⏳ Generating Image...' : (saving ? '📅 Scheduling...' : 'Schedule')}
                     </button>
                     <button
                       type="button"
