@@ -51,7 +51,7 @@ export default function PricingPage() {
       {/* Hero Section */}
       <section style={{
         padding: "100px 24px",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        background: "linear-gradient(135deg, #007bff 0%, #0056b3 100%)",
         color: "white",
         textAlign: "center"
       }}>

@@ -51,7 +51,7 @@ export default function FAQPage() {
       {/* Hero Section */}
       <section style={{
         padding: "80px 24px 60px",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        background: "linear-gradient(135deg, #007bff 0%, #0056b3 100%)",
         color: "white",
         textAlign: "center"
       }}>
@@ -268,7 +268,7 @@ export default function FAQPage() {
       {/* CTA */}
       <section style={{
         padding: "80px 24px",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        background: "linear-gradient(135deg, #007bff 0%, #0056b3 100%)",
         color: "white",
         textAlign: "center"
       }}>
@@ -283,7 +283,7 @@ export default function FAQPage() {
             display: "inline-block",
             padding: "16px 40px",
             backgroundColor: "white",
-            color: "#667eea",
+            color: "#007bff",
             borderRadius: "8px",
             textDecoration: "none",
             fontSize: "18px",
