@@ -189,18 +189,22 @@ export default function SchedulePage() {
         const data = await response.json();
         const zonesData = data.zones || [];
         
-        // DEBUG: Log zones and check for missing css_selectors
+        // DEBUG: Check for zones without CSS selectors
         console.log(`[Schedule] 📋 Loaded ${zonesData.length} zones`);
-        console.table(zonesData.map((z: Zone) => ({
-          Label: z.slot_label,
-          'Has CSS Selector': !!z.css_selector,
-          'CSS Selector': z.css_selector || '❌ MISSING',
-          Marker: z.marker_name
-        })));
         
         const missing = zonesData.filter((z: Zone) => !z.css_selector);
+        const working = zonesData.filter((z: Zone) => !!z.css_selector);
+        
+        console.log(`[Schedule] ✅ ${working.length} zones with CSS selectors (will work when clicked)`);
+        
         if (missing.length > 0) {
-          console.warn(`[Schedule] ⚠️  ${missing.length} zones missing css_selector - they won't work when clicked!`);
+          console.warn(`[Schedule] ❌ ${missing.length} zones WITHOUT CSS selectors (clicks will fail):`);
+          missing.forEach((z: Zone, idx: number) => {
+            console.warn(`  ${idx + 1}. "${z.slot_label}" (marker: ${z.marker_name})`);
+          });
+          console.warn('[Schedule] 💡 Fix: Re-click these zones in Visual Editor to add CSS selectors');
+        } else {
+          console.log('[Schedule] 🎉 All zones have CSS selectors!');
         }
         
         setZones(zonesData);
