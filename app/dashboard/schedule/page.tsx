@@ -187,7 +187,23 @@ export default function SchedulePage() {
 
       if (response.ok) {
         const data = await response.json();
-        setZones(data.zones || []);
+        const zonesData = data.zones || [];
+        
+        // DEBUG: Log zones and check for missing css_selectors
+        console.log(`[Schedule] 📋 Loaded ${zonesData.length} zones`);
+        console.table(zonesData.map((z: Zone) => ({
+          Label: z.slot_label,
+          'Has CSS Selector': !!z.css_selector,
+          'CSS Selector': z.css_selector || '❌ MISSING',
+          Marker: z.marker_name
+        })));
+        
+        const missing = zonesData.filter((z: Zone) => !z.css_selector);
+        if (missing.length > 0) {
+          console.warn(`[Schedule] ⚠️  ${missing.length} zones missing css_selector - they won't work when clicked!`);
+        }
+        
+        setZones(zonesData);
       }
     } catch (err: any) {
       console.error('Failed to load zones:', err);
