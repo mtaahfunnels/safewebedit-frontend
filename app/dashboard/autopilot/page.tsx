@@ -104,6 +104,7 @@ export default function AIAutopilotPage() {
           setSelectedSiteUrl(data.sites[0].site_url);
           log.state('Auto-selected first site:', data.sites[0]);
           addDiagnostic(`Auto-selected: ${data.sites[0].site_name || data.sites[0].site_url}`);
+          loadContentSlots(data.sites[0].id);
         }
       } else {
         log.error('Failed to load sites:', response.status);
@@ -112,6 +113,24 @@ export default function AIAutopilotPage() {
     } catch (err: any) {
       log.error('Exception loading sites:', err);
       addDiagnostic(`EXCEPTION: ${err.message}`);
+    }
+  };
+
+  const loadContentSlots = async (siteId: string) => {
+    log.api('Loading slots:', siteId);
+    addDiagnostic('Loading zones...');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/api/slots/site/${siteId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setContentSlots(data.slots || []);
+        addDiagnostic(`Loaded ${data.slots?.length || 0} zones`);
+      }
+    } catch (err: any) {
+      log.error('Load slots error:', err);
     }
   };
 
@@ -290,24 +309,25 @@ export default function AIAutopilotPage() {
       if (event.data.type === 'ELEMENT_CLICKED') {
         const { cssSelector, elementText } = event.data.data;
         log.iframe('Element clicked:', { cssSelector, elementText });
-        addDiagnostic(`Zone clicked: ${elementText || cssSelector}`);
-
-        // Find the zone that matches this selector
-        // (You'll need to load zones from the API)
-        setSelectedZone({
-          id: 'zone-id', // Get from API
-          cssSelector,
-          label: elementText
-        });
-
-        // Load schedule for this zone
-        // loadZoneSchedule(zoneId);
+        addDiagnostic(`Zone clicked: ${elementText || cssSelector.substring(0, 50)}`);
+        const matchedSlot = contentSlots.find(slot => slot.css_selector === cssSelector);
+        if (matchedSlot) {
+          log.state('Matched slot:', matchedSlot);
+          addDiagnostic(`Matched: ${matchedSlot.slot_label}`);
+          setSelectedZone({ id: matchedSlot.id, cssSelector, label: matchedSlot.slot_label || elementText });
+          loadZoneSchedule(matchedSlot.id);
+        } else {
+          log.warn('No match for:', cssSelector);
+          addDiagnostic('No matching zone');
+          setSelectedZone({ id: null, cssSelector, label: elementText });
+          setZoneSchedule([]);
+        }
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [selectedSite]);
+  }, [selectedSite, contentSlots]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -351,6 +371,8 @@ export default function AIAutopilotPage() {
               setSelectedZone(null);
               log.state('Site changed:', e.target.value);
               addDiagnostic(`Site changed: ${site?.site_name || site?.site_url}`);
+              setZoneSchedule([]);
+              if (e.target.value) loadContentSlots(e.target.value);
             }}
             style={{
               width: '100%',
