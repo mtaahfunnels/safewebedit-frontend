@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-interface QueueItem {
+interface AutopilotItem {
   id: string;
   content_slot_id: string;
   slot_name: string;
@@ -10,12 +10,9 @@ interface QueueItem {
   content_type: 'text' | 'image';
   content_text?: string;
   content_image_url?: string;
-  content_image_prompt?: string;
   scheduled_at: string;
   confidence_score: number;
   generation_reasoning: string;
-  pattern_name?: string;
-  pattern_type?: string;
   based_on_pattern: boolean;
   status: string;
 }
@@ -26,27 +23,30 @@ interface Site {
   site_name?: string;
 }
 
-export default function AutopilotReviewPage() {
+export default function AIAutopilotPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState<string>('');
-  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [selectedSiteUrl, setSelectedSiteUrl] = useState<string>('');
+  const [selectedZone, setSelectedZone] = useState<any>(null);
+  const [zoneSchedule, setZoneSchedule] = useState<AutopilotItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
 
-  // Load user's sites on mount
+  // Load sites on mount
   useEffect(() => {
     loadSites();
   }, []);
 
-  // Load queue when site is selected
+  // Load iframe when site is selected
   useEffect(() => {
-    if (selectedSite) {
-      loadQueue();
+    if (selectedSite && selectedSiteUrl) {
+      loadSitePreview();
     }
-  }, [selectedSite]);
+  }, [selectedSite, selectedSiteUrl]);
 
   const loadSites = async () => {
     try {
@@ -62,6 +62,7 @@ export default function AutopilotReviewPage() {
         setSites(data.sites || []);
         if (data.sites && data.sites.length > 0) {
           setSelectedSite(data.sites[0].id);
+          setSelectedSiteUrl(data.sites[0].site_url);
         }
       }
     } catch (err) {
@@ -69,29 +70,28 @@ export default function AutopilotReviewPage() {
     }
   };
 
-  const loadQueue = async () => {
-    if (!selectedSite) return;
+  const loadSitePreview = () => {
+    if (!iframeRef.current || !selectedSiteUrl) return;
 
+    const proxyUrl = `${apiUrl}/api/visual-proxy?url=${encodeURIComponent(selectedSiteUrl)}`;
+    iframeRef.current.src = proxyUrl;
+  };
+
+  const loadZoneSchedule = async (zoneId: string) => {
     setLoading(true);
-    setError('');
-
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${apiUrl}/api/autopilot/queue/${selectedSite}?status=pending_review`,
-        {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }
+        `${apiUrl}/api/autopilot/queue/${selectedSite}?slot_id=${zoneId}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
 
       if (response.ok) {
         const data = await response.json();
-        setQueue(data.queue || []);
-      } else {
-        setError('Failed to load queue');
+        setZoneSchedule(data.queue || []);
       }
     } catch (err) {
-      setError('Network error loading queue');
+      console.error('Error loading zone schedule:', err);
     } finally {
       setLoading(false);
     }
@@ -106,66 +106,97 @@ export default function AutopilotReviewPage() {
       });
 
       if (response.ok) {
-        setSuccessMessage('Content approved successfully!');
-        setTimeout(() => setSuccessMessage(''), 3000);
-        loadQueue(); // Reload queue
-      } else {
-        setError('Failed to approve content');
+        setSuccessMessage('✓ Approved!');
+        setTimeout(() => setSuccessMessage(''), 2000);
+        if (selectedZone) loadZoneSchedule(selectedZone.id);
       }
     } catch (err) {
-      setError('Network error approving content');
+      setError('Failed to approve');
     }
   };
 
-  const handleReject = async (scheduleId: string) => {
-    const reason = prompt('Why are you rejecting this content? (optional)');
-
+  const handleRegenerate = async (scheduleId: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${apiUrl}/api/autopilot/reject/${scheduleId}`, {
+
+      // Delete the current one
+      await fetch(`${apiUrl}/api/autopilot/queue/${scheduleId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      // Trigger regeneration for this zone
+      const response = await fetch(`${apiUrl}/api/autopilot/generate/${selectedSite}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ reason: reason || 'User rejected' })
+        body: JSON.stringify({
+          slotIds: [selectedZone.id],
+          lookAheadDays: 30
+        })
       });
 
       if (response.ok) {
-        setSuccessMessage('Content rejected');
-        setTimeout(() => setSuccessMessage(''), 3000);
-        loadQueue(); // Reload queue
-      } else {
-        setError('Failed to reject content');
+        setSuccessMessage('✓ Regenerating...');
+        setTimeout(() => {
+          setSuccessMessage('');
+          if (selectedZone) loadZoneSchedule(selectedZone.id);
+        }, 2000);
       }
     } catch (err) {
-      setError('Network error rejecting content');
+      setError('Failed to regenerate');
     }
   };
 
-  const handleDelete = async (scheduleId: string) => {
-    if (!confirm('Are you sure you want to delete this content from the queue?')) {
-      return;
-    }
+  const handleReschedule = async (scheduleId: string) => {
+    const newDate = prompt('Enter new date/time (YYYY-MM-DD HH:MM):');
+    if (!newDate) return;
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${apiUrl}/api/autopilot/queue/${scheduleId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(`${apiUrl}/api/autopilot/reschedule/${scheduleId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ scheduledAt: newDate })
       });
 
       if (response.ok) {
-        setSuccessMessage('Content deleted');
-        setTimeout(() => setSuccessMessage(''), 3000);
-        loadQueue();
-      } else {
-        setError('Failed to delete content');
+        setSuccessMessage('✓ Rescheduled!');
+        setTimeout(() => setSuccessMessage(''), 2000);
+        if (selectedZone) loadZoneSchedule(selectedZone.id);
       }
     } catch (err) {
-      setError('Network error deleting content');
+      setError('Failed to reschedule');
     }
   };
+
+  // Listen for zone clicks from iframe
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'ELEMENT_CLICKED') {
+        const { cssSelector, elementText } = event.data.data;
+
+        // Find the zone that matches this selector
+        // (You'll need to load zones from the API)
+        setSelectedZone({
+          id: 'zone-id', // Get from API
+          cssSelector,
+          label: elementText
+        });
+
+        // Load schedule for this zone
+        // loadZoneSchedule(zoneId);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [selectedSite]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -179,267 +210,294 @@ export default function AutopilotReviewPage() {
   };
 
   const getConfidenceColor = (score: number) => {
-    if (score >= 0.9) return '#10b981'; // green
-    if (score >= 0.75) return '#f59e0b'; // amber
-    return '#ef4444'; // red
+    if (score >= 0.9) return '#10b981';
+    if (score >= 0.75) return '#f59e0b';
+    return '#ef4444';
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '10px', color: '#1f2937' }}>
-        Autopilot Review Dashboard
-      </h1>
-      <p style={{ color: '#6b7280', marginBottom: '30px' }}>
-        Review and approve AI-generated content before it goes live
-      </p>
+    <div style={{ display: 'flex', height: 'calc(100vh - 60px)', backgroundColor: '#f5f5f5' }}>
 
-      {/* Site Selector */}
-      <div style={{ marginBottom: '30px' }}>
-        <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>
-          Select Site:
-        </label>
-        <select
-          value={selectedSite}
-          onChange={(e) => setSelectedSite(e.target.value)}
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            padding: '10px',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '14px'
-          }}
-        >
-          <option value="">-- Select a site --</option>
-          {sites.map(site => (
-            <option key={site.id} value={site.id}>
-              {site.site_name || site.site_url}
-            </option>
-          ))}
-        </select>
+      {/* Left Panel - Website Preview */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'white', borderRight: '1px solid #e5e7eb' }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: '#1f2937' }}>
+            🤖 AI Autopilot
+          </h1>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '15px' }}>
+            Click any content zone to see AI-generated schedules
+          </p>
+
+          {/* Site Selector */}
+          <select
+            value={selectedSite}
+            onChange={(e) => {
+              setSelectedSite(e.target.value);
+              const site = sites.find(s => s.id === e.target.value);
+              if (site) setSelectedSiteUrl(site.site_url);
+              setSelectedZone(null);
+            }}
+            style={{
+              width: '100%',
+              padding: '10px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
+          >
+            <option value="">-- Select a site --</option>
+            {sites.map(site => (
+              <option key={site.id} value={site.id}>
+                {site.site_name || site.site_url}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Website Preview */}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          {selectedSite ? (
+            <iframe
+              ref={iframeRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none'
+              }}
+              title="Website Preview"
+            />
+          ) : (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: '#9ca3af',
+              fontSize: '14px'
+            }}>
+              Select a site to preview
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Messages */}
-      {error && (
-        <div style={{
-          padding: '12px',
-          marginBottom: '20px',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          borderRadius: '6px',
-          color: '#991b1b'
-        }}>
-          {error}
+      {/* Right Panel - AI Schedule */}
+      <div style={{ width: '450px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', boxShadow: '-2px 0 8px rgba(0,0,0,0.05)' }}>
+
+        {/* Panel Header */}
+        <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
+          {selectedZone ? (
+            <>
+              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
+                {selectedZone.label || 'Selected Zone'}
+              </h2>
+              <p style={{ fontSize: '13px', color: '#6b7280' }}>
+                AI-Generated Schedule
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
+                No Zone Selected
+              </h2>
+              <p style={{ fontSize: '13px', color: '#6b7280' }}>
+                Click a content zone to see automated schedules
+              </p>
+            </>
+          )}
         </div>
-      )}
 
-      {successMessage && (
-        <div style={{
-          padding: '12px',
-          marginBottom: '20px',
-          backgroundColor: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          borderRadius: '6px',
-          color: '#166534'
-        }}>
-          {successMessage}
-        </div>
-      )}
+        {/* Messages */}
+        {error && (
+          <div style={{
+            margin: '12px',
+            padding: '10px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '4px',
+            color: '#991b1b',
+            fontSize: '13px'
+          }}>
+            {error}
+          </div>
+        )}
 
-      {/* Loading State */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-          Loading queue...
-        </div>
-      )}
+        {successMessage && (
+          <div style={{
+            margin: '12px',
+            padding: '10px',
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: '4px',
+            color: '#166534',
+            fontSize: '13px'
+          }}>
+            {successMessage}
+          </div>
+        )}
 
-      {/* Empty State */}
-      {!loading && selectedSite && queue.length === 0 && (
-        <div style={{
-          textAlign: 'center',
-          padding: '60px 20px',
-          backgroundColor: '#f9fafb',
-          borderRadius: '8px',
-          border: '2px dashed #d1d5db'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>✓</div>
-          <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
-            All caught up!
-          </h3>
-          <p style={{ color: '#6b7280' }}>
-            No content pending review for this site.
-          </p>
-        </div>
-      )}
-
-      {/* Queue Items */}
-      {!loading && queue.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {queue.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '20px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}
-            >
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
-                <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
-                    {item.slot_label || item.slot_name}
-                  </h3>
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: '#6b7280' }}>
-                    <span>📅 {formatDate(item.scheduled_at)}</span>
-                    <span>
-                      <span style={{
-                        display: 'inline-block',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: getConfidenceColor(item.confidence_score),
-                        marginRight: '6px'
-                      }}></span>
-                      {Math.round(item.confidence_score * 100)}% confidence
-                    </span>
-                    {item.based_on_pattern && item.pattern_name && (
-                      <span>🔁 Pattern: {item.pattern_name}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Content Preview */}
-              <div style={{
-                backgroundColor: '#f9fafb',
-                padding: '16px',
-                borderRadius: '6px',
-                marginBottom: '16px'
-              }}>
-                {item.content_type === 'text' && (
-                  <div>
-                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase' }}>
-                      Text Content
-                    </div>
-                    <p style={{ color: '#1f2937', lineHeight: '1.6', margin: 0 }}>
-                      {item.content_text}
-                    </p>
-                  </div>
-                )}
-
-                {item.content_type === 'image' && (
-                  <div>
-                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase' }}>
-                      Image Content
-                    </div>
-                    {item.content_image_url && (
-                      <img
-                        src={item.content_image_url}
-                        alt="Generated content"
-                        style={{ maxWidth: '300px', borderRadius: '4px', marginBottom: '8px' }}
-                      />
-                    )}
-                    {item.content_image_prompt && (
-                      <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-                        Prompt: {item.content_image_prompt}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* AI Reasoning */}
-              {item.generation_reasoning && (
-                <div style={{
-                  borderLeft: '3px solid #3b82f6',
-                  paddingLeft: '12px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#3b82f6', marginBottom: '4px' }}>
-                    AI REASONING
-                  </div>
-                  <p style={{ fontSize: '13px', color: '#4b5563', margin: 0, lineHeight: '1.5' }}>
-                    {item.generation_reasoning}
-                  </p>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#6b7280',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={() => handleReject(item.id)}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#ef4444',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={() => handleApprove(item.id)}
-                  style={{
-                    padding: '10px 20px',
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
-                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  ✓ Approve
-                </button>
-              </div>
+        {/* Schedule List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+              Loading schedule...
             </div>
-          ))}
-        </div>
-      )}
+          ) : selectedZone && zoneSchedule.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {zoneSchedule.map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    backgroundColor: '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    padding: '14px'
+                  }}
+                >
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      📅 {formatDate(item.scheduled_at)}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: getConfidenceColor(item.confidence_score),
+                        color: 'white',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {Math.round(item.confidence_score * 100)}%
+                    </div>
+                  </div>
 
-      {/* Summary Footer */}
-      {!loading && queue.length > 0 && (
-        <div style={{
-          marginTop: '30px',
-          padding: '16px',
-          backgroundColor: '#f9fafb',
-          borderRadius: '6px',
-          textAlign: 'center',
-          color: '#6b7280',
-          fontSize: '14px'
-        }}>
-          {queue.length} item{queue.length !== 1 ? 's' : ''} pending review
+                  {/* Content */}
+                  <div style={{
+                    backgroundColor: 'white',
+                    padding: '10px',
+                    borderRadius: '4px',
+                    marginBottom: '10px',
+                    fontSize: '13px',
+                    color: '#374151',
+                    lineHeight: '1.5'
+                  }}>
+                    {item.content_text || item.content_image_url}
+                  </div>
+
+                  {/* AI Reasoning */}
+                  {item.generation_reasoning && (
+                    <div style={{
+                      fontSize: '11px',
+                      color: '#6b7280',
+                      fontStyle: 'italic',
+                      marginBottom: '10px',
+                      paddingLeft: '8px',
+                      borderLeft: '2px solid #3b82f6'
+                    }}>
+                      {item.generation_reasoning}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => handleApprove(item.id)}
+                      style={{
+                        flex: 1,
+                        padding: '6px 10px',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✓ Approve
+                    </button>
+                    <button
+                      onClick={() => handleRegenerate(item.id)}
+                      style={{
+                        flex: 1,
+                        padding: '6px 10px',
+                        backgroundColor: '#f59e0b',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🔄 Redo
+                    </button>
+                    <button
+                      onClick={() => handleReschedule(item.id)}
+                      style={{
+                        flex: 1,
+                        padding: '6px 10px',
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📅 Reschedule
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : selectedZone ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              color: '#9ca3af'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>🤖</div>
+              <p style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '6px' }}>
+                No AI schedule yet
+              </p>
+              <p style={{ fontSize: '13px' }}>
+                Autopilot will generate content for this zone
+              </p>
+            </div>
+          ) : (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              color: '#9ca3af'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>👈</div>
+              <p style={{ fontSize: '14px' }}>
+                Click a zone on the left to see its AI schedule
+              </p>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Footer */}
+        {selectedZone && zoneSchedule.length > 0 && (
+          <div style={{
+            padding: '12px',
+            borderTop: '1px solid #e5e7eb',
+            backgroundColor: '#f9fafb',
+            textAlign: 'center',
+            fontSize: '12px',
+            color: '#6b7280'
+          }}>
+            {zoneSchedule.length} automated schedule{zoneSchedule.length !== 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
