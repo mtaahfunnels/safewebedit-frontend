@@ -2,19 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-// ============================================================================
-// DIAGNOSTIC SYSTEM
-// ============================================================================
-const DEBUG = true; // Toggle diagnostics
-const log = {
-  info: (...args: any[]) => DEBUG && console.log('[AUTOPILOT INFO]', new Date().toISOString(), ...args),
-  error: (...args: any[]) => console.error('[AUTOPILOT ERROR]', new Date().toISOString(), ...args),
-  warn: (...args: any[]) => console.warn('[AUTOPILOT WARN]', new Date().toISOString(), ...args),
-  api: (...args: any[]) => DEBUG && console.log('[AUTOPILOT API]', new Date().toISOString(), ...args),
-  state: (...args: any[]) => DEBUG && console.log('[AUTOPILOT STATE]', new Date().toISOString(), ...args),
-  iframe: (...args: any[]) => DEBUG && console.log('[AUTOPILOT IFRAME]', new Date().toISOString(), ...args),
-};
-
 interface AutopilotItem {
   id: string;
   content_slot_id: string;
@@ -45,172 +32,100 @@ export default function AIAutopilotPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
 
-  // Add diagnostic message
-  const addDiagnostic = (message: string) => {
-    setDiagnostics(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${message}`]);
-  };
-
   // Load sites on mount
   useEffect(() => {
-    log.info('Component mounted, initializing...');
-    addDiagnostic('Component initialized');
     loadSites();
   }, []);
 
   // Load iframe when site is selected
   useEffect(() => {
     if (selectedSite && selectedSiteUrl) {
-      log.state('Site selected:', { selectedSite, selectedSiteUrl });
-      addDiagnostic(`Site selected: ${selectedSiteUrl}`);
       loadSitePreview();
     }
   }, [selectedSite, selectedSiteUrl]);
 
   const loadSites = async () => {
-    log.api('Loading sites...');
-    addDiagnostic('Fetching sites from API...');
-
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        log.warn('No authentication token found');
-        addDiagnostic('ERROR: No auth token');
-        return;
-      }
+      if (!token) return;
 
-      const url = `${apiUrl}/api/wordpress/sites`;
-      log.api('Request:', { url, hasToken: !!token });
-
-      const response = await fetch(url, {
+      const response = await fetch(`${apiUrl}/api/wordpress/sites`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      log.api('Response:', { status: response.status, ok: response.ok });
-
       if (response.ok) {
         const data = await response.json();
-        log.api('Sites loaded:', data.sites?.length || 0);
-        addDiagnostic(`Loaded ${data.sites?.length || 0} sites`);
-
         setSites(data.sites || []);
         if (data.sites && data.sites.length > 0) {
           setSelectedSite(data.sites[0].id);
           setSelectedSiteUrl(data.sites[0].site_url);
-          log.state('Auto-selected first site:', data.sites[0]);
-          addDiagnostic(`Auto-selected: ${data.sites[0].site_name || data.sites[0].site_url}`);
         }
-      } else {
-        log.error('Failed to load sites:', response.status);
-        addDiagnostic(`ERROR: Failed to load sites (${response.status})`);
       }
-    } catch (err: any) {
-      log.error('Exception loading sites:', err);
-      addDiagnostic(`EXCEPTION: ${err.message}`);
+    } catch (err) {
+      console.error('Error loading sites:', err);
     }
   };
 
   const loadSitePreview = () => {
-    if (!iframeRef.current || !selectedSiteUrl) {
-      log.warn('Cannot load preview:', { hasIframe: !!iframeRef.current, hasUrl: !!selectedSiteUrl });
-      return;
-    }
+    if (!iframeRef.current || !selectedSiteUrl) return;
 
     const proxyUrl = `${apiUrl}/api/visual-proxy?url=${encodeURIComponent(selectedSiteUrl)}`;
-    log.iframe('Loading preview:', { selectedSiteUrl, proxyUrl });
-    addDiagnostic('Loading website preview...');
-
     iframeRef.current.src = proxyUrl;
   };
 
   const loadZoneSchedule = async (zoneId: string) => {
-    log.api('Loading zone schedule:', { zoneId, selectedSite });
-    addDiagnostic(`Loading schedule for zone: ${zoneId.substring(0, 8)}...`);
-
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const url = `${apiUrl}/api/autopilot/queue/${selectedSite}?slot_id=${zoneId}`;
-
-      log.api('Request:', { url, hasToken: !!token });
-
-      const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      log.api('Response:', { status: response.status, ok: response.ok });
+      const response = await fetch(
+        `${apiUrl}/api/autopilot/queue/${selectedSite}?slot_id=${zoneId}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
 
       if (response.ok) {
         const data = await response.json();
-        log.api('Schedule loaded:', { count: data.queue?.length || 0 });
-        addDiagnostic(`Loaded ${data.queue?.length || 0} scheduled items`);
         setZoneSchedule(data.queue || []);
-      } else {
-        log.error('Failed to load schedule:', response.status);
-        addDiagnostic(`ERROR: Failed to load schedule (${response.status})`);
       }
-    } catch (err: any) {
-      log.error('Exception loading schedule:', err);
-      addDiagnostic(`EXCEPTION: ${err.message}`);
+    } catch (err) {
+      console.error('Error loading zone schedule:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleApprove = async (scheduleId: string) => {
-    log.api('Approving schedule:', scheduleId);
-    addDiagnostic(`Approving: ${scheduleId.substring(0, 8)}...`);
-
     try {
       const token = localStorage.getItem('token');
-      const url = `${apiUrl}/api/autopilot/approve/${scheduleId}`;
-
-      log.api('Request:', { url });
-
-      const response = await fetch(url, {
+      const response = await fetch(`${apiUrl}/api/autopilot/approve/${scheduleId}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      log.api('Response:', { status: response.status, ok: response.ok });
-
       if (response.ok) {
         setSuccessMessage('✓ Approved!');
-        addDiagnostic('✓ Approved successfully');
         setTimeout(() => setSuccessMessage(''), 2000);
         if (selectedZone) loadZoneSchedule(selectedZone.id);
-      } else {
-        log.error('Failed to approve:', response.status);
-        addDiagnostic(`ERROR: Approval failed (${response.status})`);
-        setError('Failed to approve');
       }
-    } catch (err: any) {
-      log.error('Exception approving:', err);
-      addDiagnostic(`EXCEPTION: ${err.message}`);
+    } catch (err) {
       setError('Failed to approve');
     }
   };
 
   const handleRegenerate = async (scheduleId: string) => {
-    log.api('Regenerating schedule:', scheduleId);
-    addDiagnostic(`Regenerating: ${scheduleId.substring(0, 8)}...`);
-
     try {
       const token = localStorage.getItem('token');
 
       // Delete the current one
-      log.api('Deleting current schedule...');
       await fetch(`${apiUrl}/api/autopilot/queue/${scheduleId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       // Trigger regeneration for this zone
-      log.api('Triggering regeneration...');
       const response = await fetch(`${apiUrl}/api/autopilot/generate/${selectedSite}`, {
         method: 'POST',
         headers: {
@@ -223,23 +138,14 @@ export default function AIAutopilotPage() {
         })
       });
 
-      log.api('Response:', { status: response.status, ok: response.ok });
-
       if (response.ok) {
         setSuccessMessage('✓ Regenerating...');
-        addDiagnostic('✓ Regeneration triggered');
         setTimeout(() => {
           setSuccessMessage('');
           if (selectedZone) loadZoneSchedule(selectedZone.id);
         }, 2000);
-      } else {
-        log.error('Failed to regenerate:', response.status);
-        addDiagnostic(`ERROR: Regeneration failed (${response.status})`);
-        setError('Failed to regenerate');
       }
-    } catch (err: any) {
-      log.error('Exception regenerating:', err);
-      addDiagnostic(`EXCEPTION: ${err.message}`);
+    } catch (err) {
       setError('Failed to regenerate');
     }
   };
@@ -247,9 +153,6 @@ export default function AIAutopilotPage() {
   const handleReschedule = async (scheduleId: string) => {
     const newDate = prompt('Enter new date/time (YYYY-MM-DD HH:MM):');
     if (!newDate) return;
-
-    log.api('Rescheduling:', { scheduleId, newDate });
-    addDiagnostic(`Rescheduling to: ${newDate}`);
 
     try {
       const token = localStorage.getItem('token');
@@ -262,21 +165,12 @@ export default function AIAutopilotPage() {
         body: JSON.stringify({ scheduledAt: newDate })
       });
 
-      log.api('Response:', { status: response.status, ok: response.ok });
-
       if (response.ok) {
         setSuccessMessage('✓ Rescheduled!');
-        addDiagnostic('✓ Rescheduled successfully');
         setTimeout(() => setSuccessMessage(''), 2000);
         if (selectedZone) loadZoneSchedule(selectedZone.id);
-      } else {
-        log.error('Failed to reschedule:', response.status);
-        addDiagnostic(`ERROR: Reschedule failed (${response.status})`);
-        setError('Failed to reschedule');
       }
-    } catch (err: any) {
-      log.error('Exception rescheduling:', err);
-      addDiagnostic(`EXCEPTION: ${err.message}`);
+    } catch (err) {
       setError('Failed to reschedule');
     }
   };
@@ -284,12 +178,8 @@ export default function AIAutopilotPage() {
   // Listen for zone clicks from iframe
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      log.iframe('Message received:', event.data);
-
       if (event.data.type === 'ELEMENT_CLICKED') {
         const { cssSelector, elementText } = event.data.data;
-        log.iframe('Element clicked:', { cssSelector, elementText });
-        addDiagnostic(`Zone clicked: ${elementText || cssSelector}`);
 
         // Find the zone that matches this selector
         // (You'll need to load zones from the API)
@@ -348,8 +238,6 @@ export default function AIAutopilotPage() {
               const site = sites.find(s => s.id === e.target.value);
               if (site) setSelectedSiteUrl(site.site_url);
               setSelectedZone(null);
-              log.state('Site changed:', e.target.value);
-              addDiagnostic(`Site changed: ${site?.site_name || site?.site_url}`);
             }}
             style={{
               width: '100%',
@@ -366,27 +254,6 @@ export default function AIAutopilotPage() {
               </option>
             ))}
           </select>
-
-          {/* Diagnostic Panel */}
-          {DEBUG && diagnostics.length > 0 && (
-            <div style={{
-              marginTop: '10px',
-              padding: '8px',
-              backgroundColor: '#f9fafb',
-              border: '1px solid #e5e7eb',
-              borderRadius: '4px',
-              fontSize: '11px',
-              maxHeight: '120px',
-              overflowY: 'auto'
-            }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#6b7280' }}>
-                🔍 Diagnostics (Last 10)
-              </div>
-              {diagnostics.map((msg, i) => (
-                <div key={i} style={{ color: '#374151', padding: '2px 0' }}>{msg}</div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Website Preview */}
@@ -400,14 +267,6 @@ export default function AIAutopilotPage() {
                 border: 'none'
               }}
               title="Website Preview"
-              onLoad={() => {
-                log.iframe('Iframe loaded');
-                addDiagnostic('✓ Preview loaded');
-              }}
-              onError={() => {
-                log.error('Iframe failed to load');
-                addDiagnostic('ERROR: Preview failed');
-              }}
             />
           ) : (
             <div style={{
