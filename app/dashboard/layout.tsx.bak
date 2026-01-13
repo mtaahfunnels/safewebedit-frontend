@@ -13,10 +13,9 @@ const DASHBOARD_TABS = [
   { id: 'home', label: 'Home', path: '/dashboard', icon: '🏠' },
   { id: 'wordpress', label: 'Websites', path: '/dashboard/wordpress', icon: '🌐' },
   { id: 'visual', label: 'Visual Editor', path: '/dashboard/visual', icon: '🎨' },
-  { id: 'command', label: 'AI Command Center', path: '/dashboard/command', icon: '🤖' },
+  { id: 'schedule', label: 'Content Schedule', path: '/dashboard/schedule', icon: '📅' },
+  { id: 'credits', label: 'Credits', path: '/dashboard/credits', icon: '💳' },
   { id: 'settings', label: 'Settings', path: '/dashboard/settings', icon: '⚙️' },
-  // Add more tabs here in the future:
-  // { id: 'analytics', label: 'Analytics', path: '/dashboard/analytics', icon: '📈' },
 ];
 
 export default function DashboardLayout({
@@ -36,9 +35,23 @@ export default function DashboardLayout({
     }
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5005";
+        await fetch(`${apiUrl}/api/auth/logout`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+      }
+      localStorage.clear();
+      router.push("/login");
+    } catch (error) {
+      console.error("[LOGOUT] Error:", error);
+      localStorage.clear();
+      router.push("/login");
+    }
   };
 
   const isActiveTab = (path: string) => {
@@ -124,7 +137,7 @@ export default function DashboardLayout({
 
         {/* Logout */}
         <div style={{ padding: sidebarCollapsed ? '12px 10px' : '12px 20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          
+
         {/* Credit Balance Widget */}
         <CreditBalanceWidget collapsed={sidebarCollapsed} />
 
