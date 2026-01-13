@@ -46,7 +46,6 @@ export default function AIAutopilotPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
-  const [contentSlots, setContentSlots] = useState<any[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
