@@ -19,8 +19,8 @@ interface AutopilotItem {
 
 interface Site {
   id: string;
-  site_url: string;
-  site_name?: string;
+  url: string;
+  name?: string;
 }
 
 export default function AIAutopilotPage() {
@@ -236,7 +236,7 @@ export default function AIAutopilotPage() {
             onChange={(e) => {
               setSelectedSite(e.target.value);
               const site = sites.find(s => s.id === e.target.value);
-              if (site) setSelectedSiteUrl(site.site_url);
+              if (site) setSelectedSiteUrl(site.url);
               setSelectedZone(null);
             }}
             style={{
@@ -250,7 +250,7 @@ export default function AIAutopilotPage() {
             <option value="">-- Select a site --</option>
             {sites.map(site => (
               <option key={site.id} value={site.id}>
-                {site.site_name || site.site_url}
+                {site.name || site.url}
               </option>
             ))}
           </select>
