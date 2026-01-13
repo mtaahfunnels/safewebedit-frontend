@@ -32,8 +32,8 @@ interface AutopilotItem {
 
 interface Site {
   id: string;
-  site_url: string;
-  site_name?: string;
+  url: string;
+  name?: string;
 }
 
 export default function AIAutopilotPage() {
@@ -100,9 +100,9 @@ export default function AIAutopilotPage() {
         setSites(data.sites || []);
         if (data.sites && data.sites.length > 0) {
           setSelectedSite(data.sites[0].id);
-          setSelectedSiteUrl(data.sites[0].site_url);
+          setSelectedSiteUrl(data.sites[0].url);
           log.state('Auto-selected first site:', data.sites[0]);
-          addDiagnostic(`Auto-selected: ${data.sites[0].site_name || data.sites[0].site_url}`);
+          addDiagnostic(`Auto-selected: ${data.sites[0].name || data.sites[0].url}`);
         }
       } else {
         log.error('Failed to load sites:', response.status);
@@ -346,10 +346,10 @@ export default function AIAutopilotPage() {
             onChange={(e) => {
               setSelectedSite(e.target.value);
               const site = sites.find(s => s.id === e.target.value);
-              if (site) setSelectedSiteUrl(site.site_url);
+              if (site) setSelectedSiteUrl(site.url);
               setSelectedZone(null);
               log.state('Site changed:', e.target.value);
-              addDiagnostic(`Site changed: ${site?.site_name || site?.site_url}`);
+              addDiagnostic(`Site changed: ${site?.name || site?.url}`);
             }}
             style={{
               width: '100%',
@@ -362,7 +362,7 @@ export default function AIAutopilotPage() {
             <option value="">-- Select a site --</option>
             {sites.map(site => (
               <option key={site.id} value={site.id}>
-                {site.site_name || site.site_url}
+                {site.name || site.url}
               </option>
             ))}
           </select>
