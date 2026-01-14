@@ -20,8 +20,7 @@ interface Slot {
 }
 
 interface ImageData {
-  cssSelector?: string;
-  selector?: string;  // iframe sends 'selector', not 'cssSelector'
+  cssSelector: string;
   src: string;
   width: number;
   height: number;
@@ -37,13 +36,7 @@ interface ImageMetadata {
 }
 
 export default function VisualEditorPage() {
-  // IMMEDIATE EXECUTION LOG - This runs when component renders (before useEffect)
-  console.log('⚡⚡⚡⚡⚡ [COMPONENT RENDER] VisualEditorPage component is rendering NOW!');
-  console.log('⚡⚡⚡⚡⚡ [COMPONENT RENDER] Timestamp:', new Date().toISOString());
-  console.log('⚡⚡⚡⚡⚡ [COMPONENT RENDER] If you see this, React is loading the new code!');
-
   const router = useRouter();
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState('');
   const [currentUrl, setCurrentUrl] = useState('');
@@ -155,22 +148,12 @@ export default function VisualEditorPage() {
     return () => iframe.removeEventListener('load', handleIframeLoad);
   }, [selectedSite, currentPath, currentUrl]);
 
-  // Track whether event listener is attached
-  const [listenerAttached, setListenerAttached] = useState(false);
-
   // Listen for element and image clicks from iframe
   useEffect(() => {
-    console.log('🔵 [VISUAL EDITOR DEBUG] useEffect mounting - event listener will be added');
-    console.log('🔵 [VISUAL EDITOR DEBUG] Current URL:', currentUrl);
-    console.log('🔵 [VISUAL EDITOR DEBUG] Selected Site:', selectedSite);
-
     const handleMessage = async (event: MessageEvent) => {
-      console.log('🟢 [VISUAL EDITOR DEBUG] Message received from iframe:', event.data.type);
-
       // Handle image clicks
       if (event.data.type === 'IMAGE_CLICKED') {
-        console.log('🟡 [Visual Editor] ✅ IMAGE CLICKED EVENT DETECTED!');
-        console.log('🟡 [Visual Editor] Image data:', event.data.data);
+        console.log('[Visual Editor] Image clicked:', event.data.data);
         const imageData = event.data.data as ImageData;
 
         // Close text editor if open
@@ -179,57 +162,32 @@ export default function VisualEditorPage() {
         // CREATE OR RETRIEVE SLOT FOR THIS IMAGE (so autopilot can use it)
         try {
           const token = localStorage.getItem('token');
-          const cssSelector = imageData.cssSelector || imageData.selector || '';
-
-          console.log('🟠 [Visual Editor] Step 1: Preparing to create image slot');
-          console.log('🟠 [Visual Editor] CSS Selector:', cssSelector);
-          console.log('🟠 [Visual Editor] Image SRC:', imageData.src);
-          console.log('🟠 [Visual Editor] Image Alt:', imageData.alt);
-          console.log('🟠 [Visual Editor] Token exists:', !!token);
-          console.log('🟠 [Visual Editor] Site ID:', selectedSite);
-          console.log('🟠 [Visual Editor] API URL:', apiUrl);
-
-          console.log('🟠 [Visual Editor] Step 2: Making API call to create-slot...');
-
-          const requestBody = {
-            siteId: selectedSite,
-            cssSelector: cssSelector,
-            isImage: true,
-            imageSrc: imageData.src,
-            imageAlt: imageData.alt || '',
-            imageWidth: imageData.width,
-            imageHeight: imageData.height,
-            pageUrl: currentUrl
-          };
-
-          console.log('🟠 [Visual Editor] Request body:', JSON.stringify(requestBody, null, 2));
-
           const slotResponse = await fetch(`${apiUrl}/api/auto-discovery/create-slot`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify({
+              siteId: selectedSite,
+              cssSelector: imageData.cssSelector,
+              isImage: true,
+              imageSrc: imageData.src,
+              imageAlt: imageData.alt || '',
+              imageWidth: imageData.width,
+              imageHeight: imageData.height,
+              pageUrl: currentUrl
+            })
           });
-
-          console.log('🟠 [Visual Editor] Step 3: API response received. Status:', slotResponse.status);
 
           if (slotResponse.ok) {
             const slotData = await slotResponse.json();
-            console.log('🟢 [Visual Editor] ✅ SUCCESS! Image slot created/retrieved:', slotData.slot);
-            console.log('🟢 [Visual Editor] Slot ID:', slotData.slot.id);
-            console.log('🟢 [Visual Editor] Category:', slotData.slot.content_category);
-            console.log('🟢 [Visual Editor] ✅ This image can now be used in Autopilot!');
-            alert(`✅ Image slot created!\nCategory: ${slotData.slot.content_category}\nNow go to Autopilot page to edit prompts!`);
-          } else {
-            const errorData = await slotResponse.json();
-            console.error('🔴 [Visual Editor] ❌ API Error:', slotResponse.status, errorData);
-            alert(`❌ Failed to create image slot: ${errorData.error || 'Unknown error'}`);
+            console.log('[Visual Editor] Image slot created/retrieved:', slotData.slot);
+            console.log('[Visual Editor] Category:', slotData.slot.content_category);
+            console.log('[Visual Editor] ✅ This image can now be used in Autopilot!');
           }
         } catch (err) {
-          console.error('🔴 [Visual Editor] ❌ EXCEPTION in create-slot:', err);
-          alert(`❌ Exception creating image slot: ${err}`);
+          console.error('[Visual Editor] Failed to create image slot:', err);
         }
 
         // Set image editing mode
@@ -347,16 +305,9 @@ export default function VisualEditorPage() {
       }
     };
 
-    console.log('🔵 [VISUAL EDITOR DEBUG] Adding window message event listener');
     window.addEventListener('message', handleMessage);
-    setListenerAttached(true); // Mark listener as attached
-
-    return () => {
-      console.log('🔵 [VISUAL EDITOR DEBUG] Removing window message event listener');
-      window.removeEventListener('message', handleMessage);
-      setListenerAttached(false); // Mark listener as detached
-    };
-  }, [slots, selectedSite, currentPageId, apiUrl]);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [slots, selectedSite, currentPageId]);
 
   const fetchImageSize = async (imageUrl: string) => {
     try {
@@ -731,43 +682,8 @@ const handleGenerateImage = async () => {
     );
   }
 
-  // AGGRESSIVE CACHE BUSTING - Generate unique timestamp for this render
-  const BUILD_TIMESTAMP = new Date().toISOString();
-  const CACHE_BUST_VERSION = 'v3.0-' + Date.now();
-
-  // Clear service workers on mount
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        registrations.forEach(r => r.unregister());
-        console.log('🔧 [CACHE BUST] Service workers cleared:', registrations.length);
-      });
-    }
-  }, []);
-
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* INLINE CACHE VERIFICATION - This executes IMMEDIATELY on page load */}
-      <script dangerouslySetInnerHTML={{ __html: `
-        console.log('⚡⚡⚡ [CACHE VERIFICATION] Page loaded at: ${BUILD_TIMESTAMP}');
-        console.log('⚡⚡⚡ [CACHE VERIFICATION] Build version: ${CACHE_BUST_VERSION}');
-        console.log('⚡⚡⚡ [CACHE VERIFICATION] If you see this, the new code is loading!');
-        console.log('⚡⚡⚡ [CACHE VERIFICATION] Timestamp should match green banner below');
-      ` }} />
-
-      {/* DEBUG BANNER WITH TIMESTAMP */}
-      <div style={{
-        backgroundColor: '#10b981',
-        color: 'white',
-        padding: '4px 12px',
-        fontSize: '11px',
-        fontWeight: '600',
-        textAlign: 'center',
-        flexShrink: 0
-      }}>
-        🔧 IMAGE AUTOPILOT DEBUG {CACHE_BUST_VERSION} - Built: {BUILD_TIMESTAMP.substring(0, 19)} - Click images to create slots - Check console for colored logs 🟢🟡🟠🔴
-      </div>
-
       <div style={{
         padding: '16px 24px',
         backgroundColor: 'white',
@@ -803,60 +719,6 @@ const handleGenerateImage = async () => {
 
         <div style={{ fontSize: '12px', color: '#666', marginLeft: 'auto' }}>
           Click any text or image to edit
-        </div>
-
-        {/* CACHE TEST - If you see this button, new code is loaded! */}
-        <button
-          onClick={() => {
-            console.log('🔴🔴🔴 [MANUAL TEST] Button clicked! Testing image handler...');
-            const testImageData: ImageData = {
-              selector: 'test-selector',
-              src: 'https://test.com/test.jpg',
-              width: 800,
-              height: 600,
-              alt: 'Test Image'
-            };
-            // Simulate message from iframe
-            window.postMessage({ type: 'IMAGE_CLICKED', data: testImageData }, '*');
-          }}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#ef4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            fontSize: '12px'
-          }}
-        >
-          🧪 TEST IMAGE HANDLER
-        </button>
-
-        {/* Live timestamp - updates on every render */}
-        <div style={{
-          fontSize: '10px',
-          color: '#ef4444',
-          fontWeight: '600',
-          padding: '4px 8px',
-          backgroundColor: '#fee',
-          borderRadius: '4px',
-          fontFamily: 'monospace'
-        }}>
-          RENDER: {new Date().toISOString().substring(11, 19)}
-        </div>
-
-        {/* Event listener status */}
-        <div style={{
-          fontSize: '10px',
-          color: listenerAttached ? '#10b981' : '#ef4444',
-          fontWeight: '600',
-          padding: '4px 8px',
-          backgroundColor: listenerAttached ? '#d1fae5' : '#fee',
-          borderRadius: '4px',
-          fontFamily: 'monospace'
-        }}>
-          LISTENER: {listenerAttached ? '✅ ACTIVE' : '❌ INACTIVE'}
         </div>
       </div>
 
