@@ -483,9 +483,29 @@ export default function AIAutopilotPage() {
         <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
           {selectedZone ? (
             <>
-              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
-                {selectedZone.label || 'Selected Zone'}
-              </h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>
+                  {selectedZone.label || 'Selected Zone'}
+                </h2>
+                {zoneSchedule.length > 0 && (
+                  <button
+                    onClick={handleRegenerateAll}
+                    style={{
+                      padding: '4px 10px',
+                      backgroundColor: '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                    title="Regenerate all queue items"
+                  >
+                    🔄 Regenerate All
+                  </button>
+                )}
+              </div>
               <p style={{ fontSize: '13px', color: '#6b7280' }}>
                 AI-Generated Schedule
               </p>
