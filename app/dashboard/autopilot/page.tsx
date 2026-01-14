@@ -522,8 +522,23 @@ export default function AIAutopilotPage() {
                 >
                   {/* Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                      📅 {formatDate(item.scheduled_at)}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        📅 {formatDate(item.scheduled_at)}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '10px',
+                          padding: '2px 6px',
+                          borderRadius: '8px',
+                          backgroundColor: getStatusBadge(item.status).bg,
+                          color: getStatusBadge(item.status).color,
+                          fontWeight: '600',
+                          width: 'fit-content'
+                        }}
+                      >
+                        {getStatusBadge(item.status).label}
+                      </div>
                     </div>
                     <div
                       style={{
