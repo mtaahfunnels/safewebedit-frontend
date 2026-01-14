@@ -23,6 +23,7 @@ interface AutopilotItem {
   content_type: 'text' | 'image';
   content_text?: string;
   content_image_url?: string;
+  content_image_prompt?: string;
   scheduled_at: string;
   deployed_at?: string;
   confidence_score: number;
@@ -404,6 +405,35 @@ export default function AIAutopilotPage() {
       log.error('Exception regenerating:', err);
       addDiagnostic(`EXCEPTION: ${err.message}`);
       setError('Failed to regenerate');
+    }
+  };
+
+  const handleEditPrompt = async (scheduleId: string, newPrompt: string) => {
+    log.api('Editing image prompt:', { scheduleId, newPrompt: newPrompt.substring(0, 50) + '...' });
+
+    try {
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${apiUrl}/api/autopilot/edit-prompt/${scheduleId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ imagePrompt: newPrompt })
+      });
+
+      if (response.ok) {
+        log.api('✓ Prompt auto-saved');
+        // Update local state
+        setZoneSchedule(prev => prev.map(item =>
+          item.id === scheduleId ? { ...item, content_image_prompt: newPrompt } : item
+        ));
+      } else {
+        log.error('Failed to save prompt:', response.status);
+      }
+    } catch (err: any) {
+      log.error('Exception editing prompt:', err);
     }
   };
 
@@ -853,17 +883,55 @@ export default function AIAutopilotPage() {
                   </div>
 
                   {/* Content */}
-                  <div style={{
-                    backgroundColor: 'white',
-                    padding: '10px',
-                    borderRadius: '4px',
-                    marginBottom: '10px',
-                    fontSize: '13px',
-                    color: '#374151',
-                    lineHeight: '1.5'
-                  }}>
-                    {item.content_text || item.content_image_url}
-                  </div>
+                  {item.content_type === 'image' ? (
+                    <div style={{ marginBottom: '10px' }}>
+                      <label style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: '#6b7280',
+                        marginBottom: '4px'
+                      }}>
+                        Image Prompt (editable):
+                      </label>
+                      <textarea
+                        value={item.content_image_prompt || ''}
+                        onChange={(e) => handleEditPrompt(item.id, e.target.value)}
+                        placeholder="Enter AI image generation prompt..."
+                        style={{
+                          width: '100%',
+                          minHeight: '80px',
+                          padding: '8px',
+                          borderRadius: '4px',
+                          border: '1px solid #d1d5db',
+                          fontSize: '12px',
+                          fontFamily: 'monospace',
+                          resize: 'vertical',
+                          backgroundColor: '#fefce8'
+                        }}
+                      />
+                      <p style={{
+                        fontSize: '10px',
+                        color: '#9ca3af',
+                        marginTop: '4px',
+                        fontStyle: 'italic'
+                      }}>
+                        💡 Image will be generated at scheduled time using this prompt
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{
+                      backgroundColor: 'white',
+                      padding: '10px',
+                      borderRadius: '4px',
+                      marginBottom: '10px',
+                      fontSize: '13px',
+                      color: '#374151',
+                      lineHeight: '1.5'
+                    }}>
+                      {item.content_text}
+                    </div>
+                  )}
 
                   {/* AI Reasoning */}
                   {item.generation_reasoning && (
