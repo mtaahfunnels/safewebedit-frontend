@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 // IMAGE AUTOPILOT - Only shows image content slots
 // Categories: hero_image, logo_image, featured_image
 // ============================================================================
-const DEBUG = false; // Toggle diagnostics (hidden from user, runs in background)
+const DEBUG = true; // Toggle diagnostics (hidden from user, runs in background)
 const log = {
   info: (...args: any[]) => DEBUG && console.log('[IMAGE AUTOPILOT INFO]', new Date().toISOString(), ...args),
   error: (...args: any[]) => console.error('[IMAGE AUTOPILOT ERROR]', new Date().toISOString(), ...args),
