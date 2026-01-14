@@ -37,6 +37,7 @@ interface ImageMetadata {
 
 export default function VisualEditorPage() {
   const router = useRouter();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState('');
   const [currentUrl, setCurrentUrl] = useState('');
