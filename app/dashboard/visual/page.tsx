@@ -159,6 +159,37 @@ export default function VisualEditorPage() {
         // Close text editor if open
         setEditingSlot(null);
 
+        // CREATE OR RETRIEVE SLOT FOR THIS IMAGE (so autopilot can use it)
+        try {
+          const token = localStorage.getItem('token');
+          const slotResponse = await fetch(`${apiUrl}/api/auto-discovery/create-slot`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              siteId: selectedSite,
+              cssSelector: imageData.cssSelector,
+              isImage: true,
+              imageSrc: imageData.src,
+              imageAlt: imageData.alt || '',
+              imageWidth: imageData.width,
+              imageHeight: imageData.height,
+              pageUrl: currentUrl
+            })
+          });
+
+          if (slotResponse.ok) {
+            const slotData = await slotResponse.json();
+            console.log('[Visual Editor] Image slot created/retrieved:', slotData.slot);
+            console.log('[Visual Editor] Category:', slotData.slot.content_category);
+            console.log('[Visual Editor] ✅ This image can now be used in Autopilot!');
+          }
+        } catch (err) {
+          console.error('[Visual Editor] Failed to create image slot:', err);
+        }
+
         // Set image editing mode
         setEditingImage(imageData);
         setGeneratedImage('');
