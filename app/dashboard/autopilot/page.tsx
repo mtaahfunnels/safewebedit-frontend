@@ -154,24 +154,55 @@ export default function AIAutopilotPage() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const url = `${apiUrl}/api/autopilot/queue/${selectedSite}?slot_id=${zoneId}`;
 
-      log.api('Request:', { url, hasToken: !!token });
+      // STEP 1: Check existing queue
+      const queueUrl = `${apiUrl}/api/autopilot/queue/${selectedSite}?slot_id=${zoneId}`;
+      log.api('Checking queue:', { queueUrl, hasToken: !!token });
 
-      const response = await fetch(url, {
+      const queueResponse = await fetch(queueUrl, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      log.api('Response:', { status: response.status, ok: response.ok });
+      if (queueResponse.ok) {
+        const queueData = await queueResponse.json();
+        const existingCount = queueData.queue?.length || 0;
+        log.api('Existing queue:', { count: existingCount });
+        addDiagnostic(`Found ${existingCount} existing items`);
 
-      if (response.ok) {
-        const data = await response.json();
-        log.api('Schedule loaded:', { count: data.queue?.length || 0 });
-        addDiagnostic(`Loaded ${data.queue?.length || 0} scheduled items`);
-        setZoneSchedule(data.queue || []);
+        // STEP 2: If queue has < 5 items, trigger on-demand generation
+        if (existingCount < 5) {
+          log.api('Queue incomplete, generating...');
+          addDiagnostic(`Generating ${5 - existingCount} missing items...`);
+
+          const generateUrl = `${apiUrl}/api/autopilot/generate-queue/${zoneId}`;
+          const generateResponse = await fetch(generateUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (generateResponse.ok) {
+            const generateData = await generateResponse.json();
+            log.api('Generation complete:', { total: generateData.total, generated: generateData.generated });
+            addDiagnostic(`✓ Generated ${generateData.generated} items, total: ${generateData.total}`);
+            setZoneSchedule(generateData.queue || []);
+          } else {
+            log.error('Failed to generate:', generateResponse.status);
+            addDiagnostic(`ERROR: Generation failed (${generateResponse.status})`);
+            // Still show existing items even if generation failed
+            setZoneSchedule(queueData.queue || []);
+          }
+        } else {
+          // Queue is already full, just show it
+          log.api('Queue full:', { count: existingCount });
+          addDiagnostic(`✓ Queue complete with ${existingCount} items`);
+          setZoneSchedule(queueData.queue || []);
+        }
       } else {
-        log.error('Failed to load schedule:', response.status);
-        addDiagnostic(`ERROR: Failed to load schedule (${response.status})`);
+        log.error('Failed to load queue:', queueResponse.status);
+        addDiagnostic(`ERROR: Failed to load queue (${queueResponse.status})`);
       }
     } catch (err: any) {
       log.error('Exception loading schedule:', err);
