@@ -163,6 +163,14 @@ export default function VisualEditorPage() {
         // CREATE OR RETRIEVE SLOT FOR THIS IMAGE (so autopilot can use it)
         try {
           const token = localStorage.getItem('token');
+          const cssSelector = imageData.cssSelector || imageData.selector || '';
+
+          console.log('[Visual Editor] Creating image slot:', {
+            cssSelector,
+            src: imageData.src,
+            alt: imageData.alt
+          });
+
           const slotResponse = await fetch(`${apiUrl}/api/auto-discovery/create-slot`, {
             method: 'POST',
             headers: {
@@ -171,7 +179,7 @@ export default function VisualEditorPage() {
             },
             body: JSON.stringify({
               siteId: selectedSite,
-              cssSelector: imageData.cssSelector,
+              cssSelector: cssSelector,
               isImage: true,
               imageSrc: imageData.src,
               imageAlt: imageData.alt || '',
