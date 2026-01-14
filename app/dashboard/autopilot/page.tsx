@@ -49,6 +49,7 @@ export default function AIAutopilotPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [contentSlots, setContentSlots] = useState<any[]>([]);
+  const [autopilotPaused, setAutopilotPaused] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
@@ -254,6 +255,119 @@ export default function AIAutopilotPage() {
     }
   };
 
+  const handleDisapprove = async (scheduleId: string) => {
+    log.api('Disapproving schedule (delete + auto-regenerate):', scheduleId);
+    addDiagnostic(`Disapproving: ${scheduleId.substring(0, 8)}...`);
+
+    if (!confirm('Disapprove this item? It will be deleted and replaced with a new AI-generated item.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const url = `${apiUrl}/api/autopilot/reject/${scheduleId}`;
+
+      log.api('Request:', { url });
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason: 'User disapproved via UI' })
+      });
+
+      log.api('Response:', { status: response.status, ok: response.ok });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuccessMessage(`✓ ${data.message}`);
+        addDiagnostic(`✓ Item deleted and ${data.regenerated_count} replacement(s) generated`);
+        setTimeout(() => setSuccessMessage(''), 3000);
+        if (selectedZone) loadZoneSchedule(selectedZone.id);
+      } else {
+        const errorData = await response.json();
+        log.error('Failed to disapprove:', response.status, errorData);
+        addDiagnostic(`ERROR: Disapproval failed (${response.status})`);
+        setError(errorData.error || 'Failed to disapprove');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (err: any) {
+      log.error('Exception disapproving:', err);
+      addDiagnostic(`EXCEPTION: ${err.message}`);
+      setError('Failed to disapprove');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handlePauseAutopilot = async () => {
+    if (!selectedZone) return;
+
+    log.api('Pausing autopilot for zone:', selectedZone.id);
+    addDiagnostic(`Pausing autopilot for zone: ${selectedZone.id.substring(0, 8)}...`);
+
+    try {
+      const token = localStorage.getItem('token');
+      const url = `${apiUrl}/api/autopilot/pause/${selectedZone.id}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuccessMessage(data.message);
+        setAutopilotPaused(true);
+        addDiagnostic('✓ Autopilot paused');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to pause');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (err: any) {
+      log.error('Exception pausing autopilot:', err);
+      setError('Failed to pause autopilot');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleResumeAutopilot = async () => {
+    if (!selectedZone) return;
+
+    log.api('Resuming autopilot for zone:', selectedZone.id);
+    addDiagnostic(`Resuming autopilot for zone: ${selectedZone.id.substring(0, 8)}...`);
+
+    try {
+      const token = localStorage.getItem('token');
+      const url = `${apiUrl}/api/autopilot/resume/${selectedZone.id}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuccessMessage(data.message);
+        setAutopilotPaused(false);
+        addDiagnostic(`✓ Autopilot resumed, ${data.regenerated_count} items generated`);
+        setTimeout(() => setSuccessMessage(''), 3000);
+        if (selectedZone) loadZoneSchedule(selectedZone.id);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to resume');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (err: any) {
+      log.error('Exception resuming autopilot:', err);
+      setError('Failed to resume autopilot');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   const handleRegenerate = async (scheduleId: string) => {
     log.api('Regenerating schedule item:', scheduleId);
     addDiagnostic(`Regenerating: ${scheduleId.substring(0, 8)}...`);
@@ -419,9 +533,9 @@ export default function AIAutopilotPage() {
       case 'pending_review':
         return { bg: '#fef3c7', color: '#92400e', label: 'Pending Review' };
       case 'approved':
-        return { bg: '#dbeafe', color: '#1e40af', label: 'Approved' };
+        return { bg: '#d1fae5', color: '#065f46', label: '✓ Approved - Will Auto-Deploy' };
       case 'deployed':
-        return { bg: '#d1fae5', color: '#065f46', label: 'Deployed' };
+        return { bg: '#dbeafe', color: '#1e40af', label: '🚀 Deployed' };
       case 'deployment_failed':
         return { bg: '#fee2e2', color: '#991b1b', label: 'Failed' };
       default:
@@ -542,26 +656,63 @@ export default function AIAutopilotPage() {
                   {selectedZone.label || 'Selected Zone'}
                 </h2>
                 {zoneSchedule.length > 0 && (
-                  <button
-                    onClick={handleRegenerateAll}
-                    style={{
-                      padding: '4px 10px',
-                      backgroundColor: '#f59e0b',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                    title="Regenerate all queue items"
-                  >
-                    🔄 Regenerate All
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {!autopilotPaused ? (
+                      <button
+                        onClick={handlePauseAutopilot}
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                        title="Pause auto-deployment for this zone"
+                      >
+                        ⏸ Pause
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleResumeAutopilot}
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                        title="Resume auto-deployment for this zone"
+                      >
+                        ▶ Resume
+                      </button>
+                    )}
+                    <button
+                      onClick={handleRegenerateAll}
+                      style={{
+                        padding: '4px 10px',
+                        backgroundColor: '#f59e0b',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                      title="Regenerate all queue items"
+                    >
+                      🔄 Regenerate All
+                    </button>
+                  </div>
                 )}
               </div>
               <p style={{ fontSize: '13px', color: '#6b7280' }}>
-                AI-Generated Schedule
+                AI-Generated Schedule {autopilotPaused && <span style={{ color: '#ef4444', fontWeight: '600' }}>(PAUSED)</span>}
               </p>
             </>
           ) : (
@@ -749,21 +900,23 @@ export default function AIAutopilotPage() {
                       </button>
                     )}
                     {item.status === 'approved' && (
-                      <div
+                      <button
+                        onClick={() => handleDisapprove(item.id)}
                         style={{
                           flex: 1,
                           padding: '6px 10px',
-                          backgroundColor: '#10b981',
+                          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
                           fontSize: '12px',
                           fontWeight: '600',
-                          textAlign: 'center'
+                          cursor: 'pointer'
                         }}
+                        title="Delete this item and auto-generate a replacement"
                       >
-                        ✓ Will deploy at scheduled time
-                      </div>
+                        ✗ Disapprove
+                      </button>
                     )}
                     {item.status === 'deployed' && (
                       <div
