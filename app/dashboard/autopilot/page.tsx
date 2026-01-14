@@ -513,11 +513,12 @@ export default function AIAutopilotPage() {
     }
   };
 
-  // Listen for zone clicks from iframe
+  // Listen for zone clicks AND image clicks from iframe
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       log.iframe('Message received:', event.data);
 
+      // Handle text zone clicks
       if (event.data.type === 'ELEMENT_CLICKED') {
         const { cssSelector, elementText } = event.data.data;
         log.iframe('Element clicked:', { cssSelector, elementText });
@@ -535,11 +536,80 @@ export default function AIAutopilotPage() {
           setZoneSchedule([]);
         }
       }
+
+      // Handle image clicks - create/find slot for image autopilot
+      if (event.data.type === 'IMAGE_CLICKED') {
+        const imageData = event.data.data;
+        const cssSelector = imageData.selector || imageData.cssSelector || '';
+
+        log.iframe('Image clicked:', { cssSelector, src: imageData.src });
+        addDiagnostic(`Image clicked: ${cssSelector.substring(0, 50)}`);
+
+        try {
+          // Check if slot already exists for this image
+          let matchedSlot = contentSlots.find(slot => slot.css_selector === cssSelector);
+
+          if (!matchedSlot) {
+            // Create new slot for this image
+            addDiagnostic('Creating new image slot...');
+            const token = localStorage.getItem('token');
+
+            const response = await fetch(`${apiUrl}/api/auto-discovery/create-slot`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                siteId: selectedSite,
+                cssSelector: cssSelector,
+                isImage: true,
+                imageSrc: imageData.src,
+                imageAlt: imageData.alt || '',
+                imageWidth: imageData.width,
+                imageHeight: imageData.height,
+                pageUrl: selectedSiteUrl
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              matchedSlot = data.slot;
+              addDiagnostic(`✓ Image slot created: ${matchedSlot.content_category}`);
+
+              // Reload slots to include the new one
+              await loadContentSlots(selectedSite);
+            } else {
+              const errorData = await response.json();
+              addDiagnostic(`ERROR: ${errorData.error || 'Failed to create slot'}`);
+              setError(errorData.error || 'Failed to create image slot');
+              return;
+            }
+          } else {
+            addDiagnostic(`Found existing slot: ${matchedSlot.slot_label}`);
+          }
+
+          // Select this image zone and load its schedule
+          if (matchedSlot) {
+            setSelectedZone({
+              id: matchedSlot.id,
+              cssSelector,
+              label: matchedSlot.slot_label || imageData.alt || 'Image'
+            });
+            loadZoneSchedule(matchedSlot.id);
+          }
+
+        } catch (err: any) {
+          log.error('Exception handling image click:', err);
+          addDiagnostic(`EXCEPTION: ${err.message}`);
+          setError('Failed to process image click');
+        }
+      }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [selectedSite, contentSlots]);
+  }, [selectedSite, selectedSiteUrl, contentSlots, apiUrl]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
