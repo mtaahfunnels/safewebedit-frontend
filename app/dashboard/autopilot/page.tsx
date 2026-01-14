@@ -130,8 +130,13 @@ export default function AIAutopilotPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setContentSlots(data.slots || []);
-        addDiagnostic(`Loaded ${data.slots?.length || 0} zones`);
+        // Filter to only show text slots (exclude image slots)
+        const imageCategories = ['hero_image', 'logo_image', 'featured_image'];
+        const textSlots = (data.slots || []).filter((slot: any) =>
+          !imageCategories.includes(slot.content_category)
+        );
+        setContentSlots(textSlots);
+        addDiagnostic(`Loaded ${textSlots.length} text zones (filtered from ${data.slots?.length || 0} total)`);
       }
     } catch (err: any) {
       log.error('Load slots error:', err);
