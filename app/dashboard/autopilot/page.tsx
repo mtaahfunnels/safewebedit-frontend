@@ -413,6 +413,21 @@ export default function AIAutopilotPage() {
     return '#ef4444';
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending_review':
+        return { bg: '#fef3c7', color: '#92400e', label: 'Pending Review' };
+      case 'approved':
+        return { bg: '#dbeafe', color: '#1e40af', label: 'Approved' };
+      case 'deployed':
+        return { bg: '#d1fae5', color: '#065f46', label: 'Deployed' };
+      case 'deployment_failed':
+        return { bg: '#fee2e2', color: '#991b1b', label: 'Failed' };
+      default:
+        return { bg: '#f3f4f6', color: '#4b5563', label: status };
+    }
+  };
+
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 60px)', backgroundColor: '#f5f5f5' }}>
 
