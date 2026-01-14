@@ -9,7 +9,7 @@ import CreditBalanceWidget from '@/components/CreditBalanceWidget';
 // TAB CONFIGURATION
 // Add new tabs here - that's it!
 // ============================================
-const DASHBOARD_TABS = [  { id: 'home', label: 'Home', path: '/dashboard', icon: '🏠' },  { id: 'wordpress', label: 'Websites', path: '/dashboard/wordpress', icon: '🌐' },  { id: 'visual', label: 'Visual Editor', path: '/dashboard/visual', icon: '🎨' },  { id: 'schedule', label: 'Content Schedule', path: '/dashboard/schedule', icon: '📅' },  { id: 'autopilot', label: 'AI Autopilot', path: '/dashboard/autopilot', icon: '🤖' },  { id: 'credits', label: 'Credits', path: '/dashboard/credits', icon: '💳' },  { id: 'settings', label: 'Settings', path: '/dashboard/settings', icon: '⚙️' },];
+const DASHBOARD_TABS = [  { id: 'home', label: 'Home', path: '/dashboard', icon: '🏠' },  { id: 'wordpress', label: 'Websites', path: '/dashboard/wordpress', icon: '🌐' },  { id: 'visual', label: 'Visual Editor', path: '/dashboard/visual', icon: '🎨' },  { id: 'schedule', label: 'Content Schedule', path: '/dashboard/schedule', icon: '📅' },  { id: 'autopilot', label: 'AI Autopilot (Text)', path: '/dashboard/autopilot', icon: '🤖' },  { id: 'autopilot-images', label: 'Image Autopilot', path: '/dashboard/autopilot-images', icon: '🖼️' },  { id: 'credits', label: 'Credits', path: '/dashboard/credits', icon: '💳' },  { id: 'settings', label: 'Settings', path: '/dashboard/settings', icon: '⚙️' },];
 
 export default function DashboardLayout({
   children,

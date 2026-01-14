@@ -3,16 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 
 // ============================================================================
-// DIAGNOSTIC SYSTEM (Background logging only)
+// IMAGE AUTOPILOT - Only shows image content slots
+// Categories: hero_image, logo_image, featured_image
 // ============================================================================
 const DEBUG = false; // Toggle diagnostics (hidden from user, runs in background)
 const log = {
-  info: (...args: any[]) => DEBUG && console.log('[AUTOPILOT INFO]', new Date().toISOString(), ...args),
-  error: (...args: any[]) => console.error('[AUTOPILOT ERROR]', new Date().toISOString(), ...args),
-  warn: (...args: any[]) => console.warn('[AUTOPILOT WARN]', new Date().toISOString(), ...args),
-  api: (...args: any[]) => DEBUG && console.log('[AUTOPILOT API]', new Date().toISOString(), ...args),
-  state: (...args: any[]) => DEBUG && console.log('[AUTOPILOT STATE]', new Date().toISOString(), ...args),
-  iframe: (...args: any[]) => DEBUG && console.log('[AUTOPILOT IFRAME]', new Date().toISOString(), ...args),
+  info: (...args: any[]) => DEBUG && console.log('[IMAGE AUTOPILOT INFO]', new Date().toISOString(), ...args),
+  error: (...args: any[]) => console.error('[IMAGE AUTOPILOT ERROR]', new Date().toISOString(), ...args),
+  warn: (...args: any[]) => console.warn('[IMAGE AUTOPILOT WARN]', new Date().toISOString(), ...args),
+  api: (...args: any[]) => DEBUG && console.log('[IMAGE AUTOPILOT API]', new Date().toISOString(), ...args),
+  state: (...args: any[]) => DEBUG && console.log('[IMAGE AUTOPILOT STATE]', new Date().toISOString(), ...args),
+  iframe: (...args: any[]) => DEBUG && console.log('[IMAGE AUTOPILOT IFRAME]', new Date().toISOString(), ...args),
 };
 
 interface AutopilotItem {
@@ -38,7 +39,7 @@ interface Site {
   name?: string;
 }
 
-export default function AIAutopilotPage() {
+export default function ImageAutopilotPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState<string>('');
   const [selectedSiteUrl, setSelectedSiteUrl] = useState<string>('');
@@ -130,8 +131,13 @@ export default function AIAutopilotPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setContentSlots(data.slots || []);
-        addDiagnostic(`Loaded ${data.slots?.length || 0} zones`);
+        // Filter to only show image slots
+        const imageCategories = ['hero_image', 'logo_image', 'featured_image'];
+        const imageSlots = (data.slots || []).filter((slot: any) =>
+          imageCategories.includes(slot.content_category)
+        );
+        setContentSlots(imageSlots);
+        addDiagnostic(`Loaded ${imageSlots.length} image zones (filtered from ${data.slots?.length || 0} total)`);
       }
     } catch (err: any) {
       log.error('Load slots error:', err);
@@ -656,10 +662,10 @@ export default function AIAutopilotPage() {
         {/* Header */}
         <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: '#1f2937' }}>
-            🤖 AI Autopilot
+            🖼️ Image Autopilot
           </h1>
           <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '15px' }}>
-            Click any content zone to see AI-generated schedules
+            Click any image to generate AI image prompts and schedule automatic updates
           </p>
 
           {/* Site Selector */}
