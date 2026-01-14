@@ -37,6 +37,11 @@ interface ImageMetadata {
 }
 
 export default function VisualEditorPage() {
+  // IMMEDIATE EXECUTION LOG - This runs when component renders (before useEffect)
+  console.log('⚡⚡⚡⚡⚡ [COMPONENT RENDER] VisualEditorPage component is rendering NOW!');
+  console.log('⚡⚡⚡⚡⚡ [COMPONENT RENDER] Timestamp:', new Date().toISOString());
+  console.log('⚡⚡⚡⚡⚡ [COMPONENT RENDER] If you see this, React is loading the new code!');
+
   const router = useRouter();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
   const [sites, setSites] = useState<Site[]>([]);
@@ -721,9 +726,31 @@ const handleGenerateImage = async () => {
     );
   }
 
+  // AGGRESSIVE CACHE BUSTING - Generate unique timestamp for this render
+  const BUILD_TIMESTAMP = new Date().toISOString();
+  const CACHE_BUST_VERSION = 'v3.0-' + Date.now();
+
+  // Clear service workers on mount
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(r => r.unregister());
+        console.log('🔧 [CACHE BUST] Service workers cleared:', registrations.length);
+      });
+    }
+  }, []);
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* DEBUG BANNER */}
+      {/* INLINE CACHE VERIFICATION - This executes IMMEDIATELY on page load */}
+      <script dangerouslySetInnerHTML={{ __html: `
+        console.log('⚡⚡⚡ [CACHE VERIFICATION] Page loaded at: ${BUILD_TIMESTAMP}');
+        console.log('⚡⚡⚡ [CACHE VERIFICATION] Build version: ${CACHE_BUST_VERSION}');
+        console.log('⚡⚡⚡ [CACHE VERIFICATION] If you see this, the new code is loading!');
+        console.log('⚡⚡⚡ [CACHE VERIFICATION] Timestamp should match green banner below');
+      ` }} />
+
+      {/* DEBUG BANNER WITH TIMESTAMP */}
       <div style={{
         backgroundColor: '#10b981',
         color: 'white',
@@ -733,7 +760,7 @@ const handleGenerateImage = async () => {
         textAlign: 'center',
         flexShrink: 0
       }}>
-        🔧 IMAGE AUTOPILOT DEBUG v2.0 - Click images to create slots - Check console for colored logs 🟢🟡🟠🔴
+        🔧 IMAGE AUTOPILOT DEBUG {CACHE_BUST_VERSION} - Built: {BUILD_TIMESTAMP.substring(0, 19)} - Click images to create slots - Check console for colored logs 🟢🟡🟠🔴
       </div>
 
       <div style={{
