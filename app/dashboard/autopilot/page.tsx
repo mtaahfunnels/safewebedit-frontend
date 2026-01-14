@@ -216,44 +216,34 @@ export default function AIAutopilotPage() {
   };
 
   const handleRegenerate = async (scheduleId: string) => {
-    log.api('Regenerating schedule:', scheduleId);
+    log.api('Regenerating schedule item:', scheduleId);
     addDiagnostic(`Regenerating: ${scheduleId.substring(0, 8)}...`);
 
     try {
       const token = localStorage.getItem('token');
 
-      // Delete the current one
-      log.api('Deleting current schedule...');
-      await fetch(`${apiUrl}/api/autopilot/queue/${scheduleId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      // Trigger regeneration for this zone
-      log.api('Triggering regeneration...');
-      const response = await fetch(`${apiUrl}/api/autopilot/generate/${selectedSite}`, {
+      // Regenerate this specific item (keeps same scheduled_at)
+      log.api('Calling regenerate-item endpoint...');
+      const response = await fetch(`${apiUrl}/api/autopilot/regenerate-item/${scheduleId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          slotIds: [selectedZone.id],
-          lookAheadDays: 30
-        })
+        }
       });
 
       log.api('Response:', { status: response.status, ok: response.ok });
 
       if (response.ok) {
-        setSuccessMessage('✓ Regenerating...');
-        addDiagnostic('✓ Regeneration triggered');
+        setSuccessMessage('✓ Content regenerated');
+        addDiagnostic('✓ Item regenerated successfully');
         setTimeout(() => {
           setSuccessMessage('');
           if (selectedZone) loadZoneSchedule(selectedZone.id);
-        }, 2000);
+        }, 1500);
       } else {
-        log.error('Failed to regenerate:', response.status);
+        const errorData = await response.json();
+        log.error('Failed to regenerate:', response.status, errorData);
         addDiagnostic(`ERROR: Regeneration failed (${response.status})`);
         setError('Failed to regenerate');
       }
@@ -261,6 +251,45 @@ export default function AIAutopilotPage() {
       log.error('Exception regenerating:', err);
       addDiagnostic(`EXCEPTION: ${err.message}`);
       setError('Failed to regenerate');
+    }
+  };
+
+  const handleRegenerateAll = async () => {
+    if (!selectedZone) return;
+
+    log.api('Regenerating all items for zone:', selectedZone.id);
+    addDiagnostic(`Regenerating all items for zone: ${selectedZone.id.substring(0, 8)}...`);
+
+    try {
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${apiUrl}/api/autopilot/regenerate-all/${selectedZone.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      log.api('Response:', { status: response.status, ok: response.ok });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuccessMessage(`✓ Regenerated ${data.regenerated} items`);
+        addDiagnostic(`✓ Regenerated ${data.regenerated} of ${data.total} items`);
+        setTimeout(() => {
+          setSuccessMessage('');
+          loadZoneSchedule(selectedZone.id);
+        }, 2000);
+      } else {
+        log.error('Failed to regenerate all:', response.status);
+        addDiagnostic(`ERROR: Regenerate all failed (${response.status})`);
+        setError('Failed to regenerate all items');
+      }
+    } catch (err: any) {
+      log.error('Exception regenerating all:', err);
+      addDiagnostic(`EXCEPTION: ${err.message}`);
+      setError('Failed to regenerate all items');
     }
   };
 
@@ -583,22 +612,58 @@ export default function AIAutopilotPage() {
 
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      onClick={() => handleApprove(item.id)}
-                      style={{
-                        flex: 1,
-                        padding: '6px 10px',
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ✓ Approve
-                    </button>
+                    {item.status === 'pending_review' && (
+                      <button
+                        onClick={() => handleApprove(item.id)}
+                        style={{
+                          flex: 1,
+                          padding: '6px 10px',
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✓ Approve
+                      </button>
+                    )}
+                    {item.status === 'approved' && (
+                      <div
+                        style={{
+                          flex: 1,
+                          padding: '6px 10px',
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          textAlign: 'center'
+                        }}
+                      >
+                        ✓ Will deploy at scheduled time
+                      </div>
+                    )}
+                    {item.status === 'deployed' && (
+                      <div
+                        style={{
+                          flex: 1,
+                          padding: '6px 10px',
+                          backgroundColor: '#6366f1',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          textAlign: 'center'
+                        }}
+                      >
+                        🚀 Deployed {item.deployed_at ? new Date(item.deployed_at).toLocaleDateString() : ''}
+                      </div>
+                    )}
                     <button
                       onClick={() => handleRegenerate(item.id)}
                       style={{
