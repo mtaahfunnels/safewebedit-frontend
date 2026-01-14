@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 
 // ============================================================================
-// DIAGNOSTIC SYSTEM
+// DIAGNOSTIC SYSTEM (Background logging only)
 // ============================================================================
-const DEBUG = true; // Toggle diagnostics
+const DEBUG = false; // Toggle diagnostics (hidden from user, runs in background)
 const log = {
   info: (...args: any[]) => DEBUG && console.log('[AUTOPILOT INFO]', new Date().toISOString(), ...args),
   error: (...args: any[]) => console.error('[AUTOPILOT ERROR]', new Date().toISOString(), ...args),
@@ -43,6 +43,7 @@ export default function AIAutopilotPage() {
   const [selectedZone, setSelectedZone] = useState<any>(null);
   const [zoneSchedule, setZoneSchedule] = useState<AutopilotItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [generatingMessage, setGeneratingMessage] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
@@ -152,6 +153,7 @@ export default function AIAutopilotPage() {
     addDiagnostic(`Loading schedule for zone: ${zoneId.substring(0, 8)}...`);
 
     setLoading(true);
+    setGeneratingMessage('');
     try {
       const token = localStorage.getItem('token');
 
@@ -171,8 +173,10 @@ export default function AIAutopilotPage() {
 
         // STEP 2: If queue has < 5 items, trigger on-demand generation
         if (existingCount < 5) {
+          const itemsToGenerate = 5 - existingCount;
+          setGeneratingMessage(`🤖 Generating your ${itemsToGenerate}-item schedule... This will take about ${itemsToGenerate * 3} seconds.`);
           log.api('Queue incomplete, generating...');
-          addDiagnostic(`Generating ${5 - existingCount} missing items...`);
+          addDiagnostic(`Generating ${itemsToGenerate} missing items...`);
 
           const generateUrl = `${apiUrl}/api/autopilot/generate-queue/${zoneId}`;
           const generateResponse = await fetch(generateUrl, {
@@ -188,9 +192,11 @@ export default function AIAutopilotPage() {
             log.api('Generation complete:', { total: generateData.total, generated: generateData.generated });
             addDiagnostic(`✓ Generated ${generateData.generated} items, total: ${generateData.total}`);
             setZoneSchedule(generateData.queue || []);
+            setGeneratingMessage('');
           } else {
             log.error('Failed to generate:', generateResponse.status);
             addDiagnostic(`ERROR: Generation failed (${generateResponse.status})`);
+            setGeneratingMessage('');
             // Still show existing items even if generation failed
             setZoneSchedule(queueData.queue || []);
           }
@@ -207,6 +213,7 @@ export default function AIAutopilotPage() {
     } catch (err: any) {
       log.error('Exception loading schedule:', err);
       addDiagnostic(`EXCEPTION: ${err.message}`);
+      setGeneratingMessage('');
     } finally {
       setLoading(false);
     }
@@ -584,9 +591,53 @@ export default function AIAutopilotPage() {
 
         {/* Schedule List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
-              Loading schedule...
+          {loading || generatingMessage ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '20px'
+            }}>
+              {/* Animated Loading Spinner */}
+              <div style={{
+                width: '60px',
+                height: '60px',
+                border: '4px solid #e5e7eb',
+                borderTop: '4px solid #3b82f6',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }} />
+
+              {/* Loading Message */}
+              <div style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#1f2937',
+                maxWidth: '300px'
+              }}>
+                {generatingMessage || 'Loading schedule...'}
+              </div>
+
+              {generatingMessage && (
+                <div style={{
+                  fontSize: '13px',
+                  color: '#6b7280',
+                  maxWidth: '350px',
+                  lineHeight: '1.6'
+                }}>
+                  AI is analyzing your content and creating personalized updates. Please wait while we prepare your 5-item schedule.
+                </div>
+              )}
+
+              {/* Add CSS animation */}
+              <style jsx>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
             </div>
           ) : selectedZone && zoneSchedule.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
