@@ -155,6 +155,9 @@ export default function VisualEditorPage() {
     return () => iframe.removeEventListener('load', handleIframeLoad);
   }, [selectedSite, currentPath, currentUrl]);
 
+  // Track whether event listener is attached
+  const [listenerAttached, setListenerAttached] = useState(false);
+
   // Listen for element and image clicks from iframe
   useEffect(() => {
     console.log('🔵 [VISUAL EDITOR DEBUG] useEffect mounting - event listener will be added');
@@ -346,10 +349,12 @@ export default function VisualEditorPage() {
 
     console.log('🔵 [VISUAL EDITOR DEBUG] Adding window message event listener');
     window.addEventListener('message', handleMessage);
+    setListenerAttached(true); // Mark listener as attached
 
     return () => {
       console.log('🔵 [VISUAL EDITOR DEBUG] Removing window message event listener');
       window.removeEventListener('message', handleMessage);
+      setListenerAttached(false); // Mark listener as detached
     };
   }, [slots, selectedSite, currentPageId, apiUrl]);
 
@@ -798,6 +803,60 @@ const handleGenerateImage = async () => {
 
         <div style={{ fontSize: '12px', color: '#666', marginLeft: 'auto' }}>
           Click any text or image to edit
+        </div>
+
+        {/* CACHE TEST - If you see this button, new code is loaded! */}
+        <button
+          onClick={() => {
+            console.log('🔴🔴🔴 [MANUAL TEST] Button clicked! Testing image handler...');
+            const testImageData: ImageData = {
+              selector: 'test-selector',
+              src: 'https://test.com/test.jpg',
+              width: 800,
+              height: 600,
+              alt: 'Test Image'
+            };
+            // Simulate message from iframe
+            window.postMessage({ type: 'IMAGE_CLICKED', data: testImageData }, '*');
+          }}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#ef4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          🧪 TEST IMAGE HANDLER
+        </button>
+
+        {/* Live timestamp - updates on every render */}
+        <div style={{
+          fontSize: '10px',
+          color: '#ef4444',
+          fontWeight: '600',
+          padding: '4px 8px',
+          backgroundColor: '#fee',
+          borderRadius: '4px',
+          fontFamily: 'monospace'
+        }}>
+          RENDER: {new Date().toISOString().substring(11, 19)}
+        </div>
+
+        {/* Event listener status */}
+        <div style={{
+          fontSize: '10px',
+          color: listenerAttached ? '#10b981' : '#ef4444',
+          fontWeight: '600',
+          padding: '4px 8px',
+          backgroundColor: listenerAttached ? '#d1fae5' : '#fee',
+          borderRadius: '4px',
+          fontFamily: 'monospace'
+        }}>
+          LISTENER: {listenerAttached ? '✅ ACTIVE' : '❌ INACTIVE'}
         </div>
       </div>
 
