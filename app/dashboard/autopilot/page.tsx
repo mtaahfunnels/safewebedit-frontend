@@ -24,6 +24,7 @@ interface AutopilotItem {
   content_text?: string;
   content_image_url?: string;
   scheduled_at: string;
+  deployed_at?: string;
   confidence_score: number;
   generation_reasoning: string;
   based_on_pattern: boolean;
