@@ -20,8 +20,7 @@ interface Slot {
 }
 
 interface ImageData {
-  cssSelector?: string;
-  selector?: string;
+  cssSelector: string;
   src: string;
   width: number;
   height: number;
@@ -164,7 +163,6 @@ export default function VisualEditorPage() {
         // CREATE OR RETRIEVE SLOT FOR THIS IMAGE (so autopilot can use it)
         try {
           const token = localStorage.getItem('token');
-          const cssSelector = imageData.cssSelector || imageData.selector || '';
           const slotResponse = await fetch(`${apiUrl}/api/auto-discovery/create-slot`, {
             method: 'POST',
             headers: {
@@ -173,7 +171,7 @@ export default function VisualEditorPage() {
             },
             body: JSON.stringify({
               siteId: selectedSite,
-              cssSelector: cssSelector,
+              cssSelector: imageData.cssSelector,
               isImage: true,
               imageSrc: imageData.src,
               imageAlt: imageData.alt || '',
