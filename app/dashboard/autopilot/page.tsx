@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 // ============================================================================
 // DIAGNOSTIC SYSTEM (Background logging only)
 // ============================================================================
-const DEBUG = false; // Toggle diagnostics (hidden from user, runs in background)
+const DEBUG = true; // Toggle diagnostics (temporarily enabled for debugging)
 const log = {
   info: (...args: any[]) => DEBUG && console.log('[AUTOPILOT INFO]', new Date().toISOString(), ...args),
   error: (...args: any[]) => console.error('[AUTOPILOT ERROR]', new Date().toISOString(), ...args),
