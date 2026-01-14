@@ -152,10 +152,17 @@ export default function VisualEditorPage() {
 
   // Listen for element and image clicks from iframe
   useEffect(() => {
+    console.log('🔵 [VISUAL EDITOR DEBUG] useEffect mounting - event listener will be added');
+    console.log('🔵 [VISUAL EDITOR DEBUG] Current URL:', currentUrl);
+    console.log('🔵 [VISUAL EDITOR DEBUG] Selected Site:', selectedSite);
+
     const handleMessage = async (event: MessageEvent) => {
+      console.log('🟢 [VISUAL EDITOR DEBUG] Message received from iframe:', event.data.type);
+
       // Handle image clicks
       if (event.data.type === 'IMAGE_CLICKED') {
-        console.log('[Visual Editor] Image clicked:', event.data.data);
+        console.log('🟡 [Visual Editor] ✅ IMAGE CLICKED EVENT DETECTED!');
+        console.log('🟡 [Visual Editor] Image data:', event.data.data);
         const imageData = event.data.data as ImageData;
 
         // Close text editor if open
@@ -166,11 +173,28 @@ export default function VisualEditorPage() {
           const token = localStorage.getItem('token');
           const cssSelector = imageData.cssSelector || imageData.selector || '';
 
-          console.log('[Visual Editor] Creating image slot:', {
-            cssSelector,
-            src: imageData.src,
-            alt: imageData.alt
-          });
+          console.log('🟠 [Visual Editor] Step 1: Preparing to create image slot');
+          console.log('🟠 [Visual Editor] CSS Selector:', cssSelector);
+          console.log('🟠 [Visual Editor] Image SRC:', imageData.src);
+          console.log('🟠 [Visual Editor] Image Alt:', imageData.alt);
+          console.log('🟠 [Visual Editor] Token exists:', !!token);
+          console.log('🟠 [Visual Editor] Site ID:', selectedSite);
+          console.log('🟠 [Visual Editor] API URL:', apiUrl);
+
+          console.log('🟠 [Visual Editor] Step 2: Making API call to create-slot...');
+
+          const requestBody = {
+            siteId: selectedSite,
+            cssSelector: cssSelector,
+            isImage: true,
+            imageSrc: imageData.src,
+            imageAlt: imageData.alt || '',
+            imageWidth: imageData.width,
+            imageHeight: imageData.height,
+            pageUrl: currentUrl
+          };
+
+          console.log('🟠 [Visual Editor] Request body:', JSON.stringify(requestBody, null, 2));
 
           const slotResponse = await fetch(`${apiUrl}/api/auto-discovery/create-slot`, {
             method: 'POST',
@@ -178,26 +202,26 @@ export default function VisualEditorPage() {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-              siteId: selectedSite,
-              cssSelector: cssSelector,
-              isImage: true,
-              imageSrc: imageData.src,
-              imageAlt: imageData.alt || '',
-              imageWidth: imageData.width,
-              imageHeight: imageData.height,
-              pageUrl: currentUrl
-            })
+            body: JSON.stringify(requestBody)
           });
+
+          console.log('🟠 [Visual Editor] Step 3: API response received. Status:', slotResponse.status);
 
           if (slotResponse.ok) {
             const slotData = await slotResponse.json();
-            console.log('[Visual Editor] Image slot created/retrieved:', slotData.slot);
-            console.log('[Visual Editor] Category:', slotData.slot.content_category);
-            console.log('[Visual Editor] ✅ This image can now be used in Autopilot!');
+            console.log('🟢 [Visual Editor] ✅ SUCCESS! Image slot created/retrieved:', slotData.slot);
+            console.log('🟢 [Visual Editor] Slot ID:', slotData.slot.id);
+            console.log('🟢 [Visual Editor] Category:', slotData.slot.content_category);
+            console.log('🟢 [Visual Editor] ✅ This image can now be used in Autopilot!');
+            alert(`✅ Image slot created!\nCategory: ${slotData.slot.content_category}\nNow go to Autopilot page to edit prompts!`);
+          } else {
+            const errorData = await slotResponse.json();
+            console.error('🔴 [Visual Editor] ❌ API Error:', slotResponse.status, errorData);
+            alert(`❌ Failed to create image slot: ${errorData.error || 'Unknown error'}`);
           }
         } catch (err) {
-          console.error('[Visual Editor] Failed to create image slot:', err);
+          console.error('🔴 [Visual Editor] ❌ EXCEPTION in create-slot:', err);
+          alert(`❌ Exception creating image slot: ${err}`);
         }
 
         // Set image editing mode
@@ -315,9 +339,14 @@ export default function VisualEditorPage() {
       }
     };
 
+    console.log('🔵 [VISUAL EDITOR DEBUG] Adding window message event listener');
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [slots, selectedSite, currentPageId]);
+
+    return () => {
+      console.log('🔵 [VISUAL EDITOR DEBUG] Removing window message event listener');
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [slots, selectedSite, currentPageId, apiUrl]);
 
   const fetchImageSize = async (imageUrl: string) => {
     try {
@@ -694,6 +723,19 @@ const handleGenerateImage = async () => {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* DEBUG BANNER */}
+      <div style={{
+        backgroundColor: '#10b981',
+        color: 'white',
+        padding: '4px 12px',
+        fontSize: '11px',
+        fontWeight: '600',
+        textAlign: 'center',
+        flexShrink: 0
+      }}>
+        🔧 IMAGE AUTOPILOT DEBUG v2.0 - Click images to create slots - Check console for colored logs 🟢🟡🟠🔴
+      </div>
+
       <div style={{
         padding: '16px 24px',
         backgroundColor: 'white',
