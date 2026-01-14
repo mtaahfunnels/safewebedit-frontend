@@ -516,6 +516,8 @@ export default function AIAutopilotPage() {
   // Listen for zone clicks AND image clicks from iframe
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
+      // ALWAYS log messages to help debug
+      console.log('🔵 [AUTOPILOT] Message received:', event.data.type, event.data);
       log.iframe('Message received:', event.data);
 
       // Handle text zone clicks
@@ -539,11 +541,13 @@ export default function AIAutopilotPage() {
 
       // Handle image clicks - create/find slot for image autopilot
       if (event.data.type === 'IMAGE_CLICKED') {
+        console.log('🟢 [AUTOPILOT] IMAGE_CLICKED event detected!', event.data);
         const imageData = event.data.data;
         const cssSelector = imageData.selector || imageData.cssSelector || '';
 
+        console.log('🟡 [AUTOPILOT] Image data:', { cssSelector, src: imageData.src, alt: imageData.alt });
         log.iframe('Image clicked:', { cssSelector, src: imageData.src });
-        addDiagnostic(`Image clicked: ${cssSelector.substring(0, 50)}`);
+        addDiagnostic(`🖼️ Image clicked: ${cssSelector.substring(0, 40)}`);
 
         try {
           // Check if slot already exists for this image
