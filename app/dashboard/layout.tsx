@@ -51,7 +51,9 @@ export default function DashboardLayout({
     if (path === '/dashboard') {
       return pathname === '/dashboard';
     }
-    return pathname.startsWith(path);
+    // Exact match or starts with path followed by '/' to avoid partial matches
+    // e.g., /dashboard/autopilot-images shouldn't match /dashboard/autopilot
+    return pathname === path || pathname.startsWith(path + '/');
   };
 
   return (
