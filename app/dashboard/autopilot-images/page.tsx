@@ -131,8 +131,8 @@ export default function ImageAutopilotPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        // Filter to only show image slots
-        const imageCategories = ['hero_image', 'logo_image', 'featured_image'];
+        // Filter to only show image slots (all image types)
+        const imageCategories = ['hero_image', 'logo_image', 'featured_image', 'gallery_image', 'background_image', 'icon_image', 'content_image'];
         const imageSlots = (data.slots || []).filter((slot: any) =>
           imageCategories.includes(slot.content_category)
         );
