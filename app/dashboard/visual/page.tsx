@@ -20,7 +20,8 @@ interface Slot {
 }
 
 interface ImageData {
-  cssSelector: string;
+  cssSelector?: string;
+  selector?: string;  // iframe sends 'selector', not 'cssSelector'
   src: string;
   width: number;
   height: number;
