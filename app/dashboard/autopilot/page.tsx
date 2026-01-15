@@ -530,17 +530,58 @@ export default function AIAutopilotPage() {
         const { cssSelector, elementText } = event.data.data;
         log.iframe('Element clicked:', { cssSelector, elementText });
         addDiagnostic(`Zone clicked: ${elementText || cssSelector.substring(0, 50)}`);
-        const matchedSlot = contentSlots.find(slot => slot.css_selector === cssSelector);
+        let matchedSlot = contentSlots.find(slot => slot.css_selector === cssSelector);
+
+        if (!matchedSlot) {
+          // Auto-create slot for text elements (same as images)
+          log.warn('No match for:', cssSelector, '- auto-creating...');
+          addDiagnostic('Creating new text slot...');
+          try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${apiUrl}/api/auto-discovery/create-slot`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                siteId: selectedSite,
+                cssSelector: cssSelector,
+                content: elementText,
+                elementText: elementText,
+                isImage: false,
+                pageUrl: selectedSiteUrl
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              matchedSlot = data.slot;
+              addDiagnostic(`✓ Text slot created: ${matchedSlot.content_category}`);
+              // Reload slots to include the new one
+              await loadContentSlots(selectedSite);
+            } else {
+              const errorData = await response.json();
+              addDiagnostic(`ERROR: ${errorData.error || 'Failed to create slot'}`);
+              setError(errorData.error || 'Failed to create text slot');
+              setSelectedZone({ id: null, cssSelector, label: elementText });
+              setZoneSchedule([]);
+              return;
+            }
+          } catch (err: any) {
+            log.error('Error creating slot:', err);
+            addDiagnostic(`ERROR: ${err.message}`);
+            setSelectedZone({ id: null, cssSelector, label: elementText });
+            setZoneSchedule([]);
+            return;
+          }
+        }
+
         if (matchedSlot) {
           log.state('Matched slot:', matchedSlot);
           addDiagnostic(`Matched: ${matchedSlot.slot_label}`);
           setSelectedZone({ id: matchedSlot.id, cssSelector, label: matchedSlot.slot_label || elementText });
           loadZoneSchedule(matchedSlot.id);
-        } else {
-          log.warn('No match for:', cssSelector);
-          addDiagnostic('No matching zone');
-          setSelectedZone({ id: null, cssSelector, label: elementText });
-          setZoneSchedule([]);
         }
       }
 
