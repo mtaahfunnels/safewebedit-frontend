@@ -661,10 +661,10 @@ export default function AIAutopilotPage() {
         {/* Header */}
         <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: '#1f2937' }}>
-            🤖 AI Autopilot
+            📝 Text Autopilot
           </h1>
           <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '15px' }}>
-            Click any text or image zone to generate AI content and schedule automatic updates
+            Click any text zone to generate AI content and schedule automatic updates
           </p>
 
           {/* Site Selector */}
