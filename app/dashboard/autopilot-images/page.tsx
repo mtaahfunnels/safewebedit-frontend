@@ -482,8 +482,22 @@ export default function ImageAutopilotPage() {
     }
   };
 
-  const handleReschedule = async (scheduleId: string) => {
-    const newDate = prompt('Enter new date/time (YYYY-MM-DD HH:MM):');
+  const handleReschedule = async (scheduleId: string, currentScheduledAt?: string) => {
+    // Format current scheduled time if provided
+    let promptMessage = 'Enter new date/time (YYYY-MM-DD HH:MM):';
+    if (currentScheduledAt) {
+      const currentDate = new Date(currentScheduledAt);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = months[currentDate.getMonth()];
+      const day = currentDate.getDate();
+      let hours = currentDate.getHours();
+      const minutes = currentDate.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      promptMessage = `${month} ${day}, ${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+    }
+
+    const newDate = prompt(promptMessage);
     if (!newDate) return;
 
     log.api('Rescheduling:', { scheduleId, newDate });
@@ -1100,7 +1114,7 @@ export default function ImageAutopilotPage() {
                       🔄 Redo
                     </button>
                     <button
-                      onClick={() => handleReschedule(item.id)}
+                      onClick={() => handleReschedule(item.id, item.scheduled_at)}
                       style={{
                         flex: 1,
                         padding: '6px 10px',
