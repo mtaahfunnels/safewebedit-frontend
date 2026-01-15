@@ -13,7 +13,7 @@ const DASHBOARD_TABS = [
   { id: 'home', label: 'Home', path: '/dashboard', icon: '🏠' },
   { id: 'wordpress', label: 'Websites', path: '/dashboard/wordpress', icon: '🌐' },
   { id: 'visual', label: 'Visual Editor', path: '/dashboard/visual', icon: '🎨' },
-  { id: 'autopilot', label: 'Text Autopilot', path: '/dashboard/autopilot', icon: '📝' },
+  { id: 'autopilot', label: 'AI Autopilot', path: '/dashboard/autopilot', icon: '📝' },
   { id: 'credits', label: 'Credits', path: '/dashboard/credits', icon: '💳' },
   { id: 'settings', label: 'Settings', path: '/dashboard/settings', icon: '⚙️' },
 ];
