@@ -14,7 +14,6 @@ const DASHBOARD_TABS = [
   { id: 'wordpress', label: 'Websites', path: '/dashboard/wordpress', icon: '🌐' },
   { id: 'visual', label: 'Visual Editor', path: '/dashboard/visual', icon: '🎨' },
   { id: 'autopilot', label: 'Text Autopilot', path: '/dashboard/autopilot', icon: '📝' },
-  { id: 'autopilot-images', label: 'Image Autopilot', path: '/dashboard/autopilot-images', icon: '🖼️' },
   { id: 'credits', label: 'Credits', path: '/dashboard/credits', icon: '💳' },
   { id: 'settings', label: 'Settings', path: '/dashboard/settings', icon: '⚙️' },
 ];
