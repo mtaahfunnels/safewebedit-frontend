@@ -482,10 +482,32 @@ export default function AIAutopilotPage() {
   };
 
   const handleReschedule = async (scheduleId: string) => {
-    const newDate = prompt('Enter new date/time (YYYY-MM-DD HH:MM):');
+    const newDate = prompt('Enter new date/time (mm/dd/yyyy hh:mm am/pm):');
     if (!newDate) return;
 
-    log.api('Rescheduling:', { scheduleId, newDate });
+    // Parse mm/dd/yyyy hh:mm am/pm format
+    const datePattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(am|pm)$/i;
+    const match = newDate.trim().match(datePattern);
+
+    if (!match) {
+      setError('Invalid format. Use: mm/dd/yyyy hh:mm am/pm (e.g., 01/15/2026 02:30 pm)');
+      return;
+    }
+
+    const [_, month, day, year, hour, minute, ampm] = match;
+    let hour24 = parseInt(hour);
+
+    // Convert 12-hour to 24-hour format
+    if (ampm.toLowerCase() === 'pm' && hour24 !== 12) {
+      hour24 += 12;
+    } else if (ampm.toLowerCase() === 'am' && hour24 === 12) {
+      hour24 = 0;
+    }
+
+    // Format as ISO datetime: YYYY-MM-DD HH:MM
+    const isoDateTime = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${hour24.toString().padStart(2, '0')}:${minute}`;
+
+    log.api('Rescheduling:', { scheduleId, newDate, isoDateTime });
     addDiagnostic(`Rescheduling to: ${newDate}`);
 
     try {
@@ -496,7 +518,7 @@ export default function AIAutopilotPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ scheduledAt: newDate })
+        body: JSON.stringify({ scheduledAt: isoDateTime })
       });
 
       log.api('Response:', { status: response.status, ok: response.ok });
