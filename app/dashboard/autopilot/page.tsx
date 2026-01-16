@@ -892,17 +892,21 @@ export default function AIAutopilotPage() {
                     )}
                     <button
                       onClick={handleRegenerateAll}
+                      disabled={zoneSchedule.some(item => item.content_type === 'image')}
                       style={{
                         padding: '4px 10px',
-                        backgroundColor: '#f59e0b',
+                        backgroundColor: zoneSchedule.some(item => item.content_type === 'image') ? '#9ca3af' : '#f59e0b',
                         color: 'white',
                         border: 'none',
                         borderRadius: '4px',
                         fontSize: '11px',
                         fontWeight: '600',
-                        cursor: 'pointer'
+                        cursor: zoneSchedule.some(item => item.content_type === 'image') ? 'not-allowed' : 'pointer',
+                        opacity: zoneSchedule.some(item => item.content_type === 'image') ? 0.6 : 1
                       }}
-                      title="Regenerate all queue items"
+                      title={zoneSchedule.some(item => item.content_type === 'image')
+                        ? "Regenerate All is disabled for image zones (backend bug - use individual Redo buttons instead)"
+                        : "Regenerate all queue items"}
                     >
                       🔄 Regenerate All
                     </button>
