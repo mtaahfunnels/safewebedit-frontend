@@ -1065,36 +1065,119 @@ export default function AIAutopilotPage() {
                     </div>
                   </div>
 
-                  {/* Content Type Info */}
+                  {/* Content Type Info - Enhanced Image Identifiers */}
                   {item.content_type === 'image' && (
                     <div style={{
                       backgroundColor: '#f3f4f6',
-                      padding: '8px',
-                      borderRadius: '4px',
+                      border: '1px solid #d1d5db',
+                      padding: '10px',
+                      borderRadius: '6px',
                       marginBottom: '10px',
-                      fontSize: '10px',
-                      color: '#6b7280',
+                      fontSize: '11px',
+                      color: '#374151',
                       fontFamily: 'monospace'
                     }}>
-                      <div style={{ fontWeight: '600', marginBottom: '4px', color: '#374151' }}>
-                        🆔 Content ID: {item.id.substring(0, 12)}...
+                      <div style={{ fontWeight: '700', marginBottom: '8px', color: '#6b46c1', fontSize: '12px' }}>
+                        🖼️ IMAGE IDENTIFIERS
                       </div>
+
+                      {/* Full Content ID */}
+                      <div style={{ marginBottom: '6px' }}>
+                        <strong style={{ color: '#374151' }}>Content ID:</strong>
+                        <div style={{
+                          backgroundColor: 'white',
+                          padding: '4px 6px',
+                          borderRadius: '3px',
+                          marginTop: '2px',
+                          fontSize: '10px',
+                          wordBreak: 'break-all',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          {item.id}
+                        </div>
+                      </div>
+
+                      {/* Image URL and Filename */}
                       {item.content_image_url && (
-                        <div style={{ wordBreak: 'break-all', marginTop: '4px' }}>
-                          <strong>Image URL:</strong>{' '}
-                          <a
-                            href={item.content_image_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: '#8b5cf6', textDecoration: 'underline' }}
-                          >
-                            {item.content_image_url}
-                          </a>
+                        <>
+                          <div style={{ marginBottom: '6px' }}>
+                            <strong style={{ color: '#374151' }}>Image Filename:</strong>
+                            <div style={{
+                              backgroundColor: 'white',
+                              padding: '4px 6px',
+                              borderRadius: '3px',
+                              marginTop: '2px',
+                              fontSize: '10px',
+                              color: '#8b5cf6',
+                              fontWeight: '600',
+                              border: '1px solid #e5e7eb'
+                            }}>
+                              {item.content_image_url.split('/').pop()}
+                            </div>
+                          </div>
+
+                          <div style={{ marginBottom: '6px' }}>
+                            <strong style={{ color: '#374151' }}>Full Image URL:</strong>
+                            <div style={{
+                              backgroundColor: 'white',
+                              padding: '4px 6px',
+                              borderRadius: '3px',
+                              marginTop: '2px',
+                              fontSize: '10px',
+                              wordBreak: 'break-all',
+                              border: '1px solid #e5e7eb'
+                            }}>
+                              <a
+                                href={item.content_image_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#8b5cf6', textDecoration: 'underline' }}
+                              >
+                                {item.content_image_url}
+                              </a>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Deployed Timestamp */}
+                      {item.deployed_at && (
+                        <div style={{ marginBottom: '6px' }}>
+                          <strong style={{ color: '#374151' }}>Deployed At:</strong>
+                          <div style={{
+                            backgroundColor: 'white',
+                            padding: '4px 6px',
+                            borderRadius: '3px',
+                            marginTop: '2px',
+                            fontSize: '10px',
+                            color: '#059669',
+                            fontWeight: '600',
+                            border: '1px solid #e5e7eb'
+                          }}>
+                            {new Date(item.deployed_at).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit'
+                            })}
+                          </div>
                         </div>
                       )}
+
+                      {/* Pending generation message */}
                       {!item.content_image_url && item.status !== 'deployed' && (
-                        <div style={{ color: '#9ca3af', fontStyle: 'italic', marginTop: '4px' }}>
-                          Image will be generated at scheduled time
+                        <div style={{
+                          color: '#9ca3af',
+                          fontStyle: 'italic',
+                          marginTop: '6px',
+                          padding: '6px',
+                          backgroundColor: '#fef3c7',
+                          borderRadius: '3px',
+                          fontSize: '10px',
+                          textAlign: 'center'
+                        }}>
+                          ⏳ Image will be generated at scheduled time
                         </div>
                       )}
                     </div>
