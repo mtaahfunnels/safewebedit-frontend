@@ -482,11 +482,12 @@ export default function AIAutopilotPage() {
   };
 
   const handleReschedule = async (scheduleId: string, currentScheduledAt?: string) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
     // Format current scheduled time if provided
-    let promptMessage = 'Enter new date/time (mm/dd/yyyy hh:mm am/pm):';
+    let promptMessage = 'Enter new date/time (Mon DD, HH:MM AM/PM):';
     if (currentScheduledAt) {
       const currentDate = new Date(currentScheduledAt);
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const month = months[currentDate.getMonth()];
       const day = currentDate.getDate();
       let hours = currentDate.getHours();
@@ -499,37 +500,38 @@ export default function AIAutopilotPage() {
     const newDate = prompt(promptMessage);
     if (!newDate) return;
 
-    // Parse mm/dd/yyyy hh:mm am/pm format
-    const datePattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(am|pm)$/i;
+    // Parse "Jan 24, 05:48 PM" format (matches: Jan 24, 05:48 PM or Jan 24 05:48 PM)
+    const datePattern = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
     const match = newDate.trim().match(datePattern);
 
     if (!match) {
       // Generate example format using current/provided date
       const exampleDate = currentScheduledAt ? new Date(currentScheduledAt) : new Date();
-      const exampleMonth = (exampleDate.getMonth() + 1).toString().padStart(2, '0');
-      const exampleDay = exampleDate.getDate().toString().padStart(2, '0');
-      const exampleYear = exampleDate.getFullYear();
+      const month = months[exampleDate.getMonth()];
+      const day = exampleDate.getDate();
       let exampleHours = exampleDate.getHours();
       const exampleMinutes = exampleDate.getMinutes().toString().padStart(2, '0');
-      const exampleAmpm = exampleHours >= 12 ? 'pm' : 'am';
+      const exampleAmpm = exampleHours >= 12 ? 'PM' : 'AM';
       exampleHours = exampleHours % 12 || 12;
 
-      setError(`Invalid format. Use: mm/dd/yyyy hh:mm am/pm (e.g., ${exampleMonth}/${exampleDay}/${exampleYear} ${exampleHours}:${exampleMinutes} ${exampleAmpm})`);
+      setError(`Invalid format. Use: Mon DD, HH:MM AM/PM (e.g., ${month} ${day}, ${exampleHours.toString().padStart(2, '0')}:${exampleMinutes} ${exampleAmpm})`);
       return;
     }
 
-    const [_, month, day, year, hour, minute, ampm] = match;
+    const [_, monthStr, day, hour, minute, ampm] = match;
+    const monthNum = months.indexOf(monthStr) + 1; // Convert month name to number
+    const year = new Date().getFullYear(); // Use current year
     let hour24 = parseInt(hour);
 
     // Convert 12-hour to 24-hour format
-    if (ampm.toLowerCase() === 'pm' && hour24 !== 12) {
+    if (ampm.toUpperCase() === 'PM' && hour24 !== 12) {
       hour24 += 12;
-    } else if (ampm.toLowerCase() === 'am' && hour24 === 12) {
+    } else if (ampm.toUpperCase() === 'AM' && hour24 === 12) {
       hour24 = 0;
     }
 
     // Format as ISO datetime: YYYY-MM-DD HH:MM
-    const isoDateTime = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${hour24.toString().padStart(2, '0')}:${minute}`;
+    const isoDateTime = `${year}-${monthNum.toString().padStart(2, '0')}-${day.padStart(2, '0')} ${hour24.toString().padStart(2, '0')}:${minute}`;
 
     log.api('Rescheduling:', { scheduleId, newDate, isoDateTime });
     addDiagnostic(`Rescheduling to: ${newDate}`);
