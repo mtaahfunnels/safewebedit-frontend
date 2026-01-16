@@ -948,18 +948,33 @@ export default function ImageAutopilotPage() {
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
                         📅 {formatDate(item.scheduled_at)}
                       </div>
-                      <div
-                        style={{
-                          fontSize: '10px',
-                          padding: '2px 6px',
-                          borderRadius: '8px',
-                          backgroundColor: getStatusBadge(item.status).bg,
-                          color: getStatusBadge(item.status).color,
-                          fontWeight: '600',
-                          width: 'fit-content'
-                        }}
-                      >
-                        {getStatusBadge(item.status).label}
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div
+                          style={{
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '8px',
+                            backgroundColor: getStatusBadge(item.status).bg,
+                            color: getStatusBadge(item.status).color,
+                            fontWeight: '600',
+                            width: 'fit-content'
+                          }}
+                        >
+                          {getStatusBadge(item.status).label}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '8px',
+                            backgroundColor: item.content_type === 'image' ? '#8b5cf6' : '#3b82f6',
+                            color: 'white',
+                            fontWeight: '600',
+                            width: 'fit-content'
+                          }}
+                        >
+                          {item.content_type === 'image' ? '🖼️ IMAGE' : '📝 TEXT'}
+                        </div>
                       </div>
                     </div>
                     <div
@@ -975,6 +990,41 @@ export default function ImageAutopilotPage() {
                       {Math.round(item.confidence_score * 100)}%
                     </div>
                   </div>
+
+                  {/* Content Type Info */}
+                  {item.content_type === 'image' && (
+                    <div style={{
+                      backgroundColor: '#f3f4f6',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      marginBottom: '10px',
+                      fontSize: '10px',
+                      color: '#6b7280',
+                      fontFamily: 'monospace'
+                    }}>
+                      <div style={{ fontWeight: '600', marginBottom: '4px', color: '#374151' }}>
+                        🆔 Content ID: {item.id.substring(0, 12)}...
+                      </div>
+                      {item.content_image_url && (
+                        <div style={{ wordBreak: 'break-all', marginTop: '4px' }}>
+                          <strong>Image URL:</strong>{' '}
+                          <a
+                            href={item.content_image_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#8b5cf6', textDecoration: 'underline' }}
+                          >
+                            {item.content_image_url}
+                          </a>
+                        </div>
+                      )}
+                      {!item.content_image_url && item.status !== 'deployed' && (
+                        <div style={{ color: '#9ca3af', fontStyle: 'italic', marginTop: '4px' }}>
+                          Image will be generated at scheduled time
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Content */}
                   {item.content_type === 'image' ? (
